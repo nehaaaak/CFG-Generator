@@ -110,7 +110,7 @@ def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
         
         # Check expiration
         exp = payload.get("exp")
-        if exp is None or datetime.fromtimestamp(exp) < datetime.now(timezone.utc):
+        if exp is None or datetime.fromtimestamp(exp, timezone.utc) < datetime.now(timezone.utc):
             return None
         
         return payload
@@ -137,30 +137,42 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 # ==================== PASSWORD VALIDATION ====================
+def validate_password(password: str) -> tuple[bool, list[str]]:
+    rules = [
+        (lambda p: len(p) >= 8, "at least 8 characters"),
+        (lambda p: len(p.encode("utf-8")) <= 72, "maximum 72 characters"),
+        (lambda p: any(c.isupper() for c in p), "one uppercase letter"),
+        (lambda p: any(c.islower() for c in p), "one lowercase letter"),
+        (lambda p: any(c.isdigit() for c in p), "one digit"),
+    ]
 
-def validate_password(password: str) -> tuple[bool, str]:
-    """
-    Validate password strength
+    errors = [message for rule, message in rules if not rule(password)]
+
+    return len(errors) == 0, errors
+
+# def validate_password(password: str) -> tuple[bool, str]:
+#     """
+#     Validate password strength
     
-    Args:
-        password: Password to validate
+#     Args:
+#         password: Password to validate
     
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
+#     Returns:
+#         Tuple of (is_valid, error_message)
+#     """
+#     if len(password) < 8:
+#         return False, "Password must be at least 8 characters long"
     
-    if not any(c.isupper() for c in password):
-        return False, "Password must contain at least one uppercase letter"
+#     if not any(c.isupper() for c in password):
+#         return False, "Password must contain at least one uppercase letter"
     
-    if not any(c.islower() for c in password):
-        return False, "Password must contain at least one lowercase letter"
+#     if not any(c.islower() for c in password):
+#         return False, "Password must contain at least one lowercase letter"
     
-    if not any(c.isdigit() for c in password):
-        return False, "Password must contain at least one digit"
+#     if not any(c.isdigit() for c in password):
+#         return False, "Password must contain at least one digit"
     
-    return True, ""
+#     return True, ""
 
 
 def validate_email(email: str) -> tuple[bool, str]:

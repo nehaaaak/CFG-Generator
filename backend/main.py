@@ -92,9 +92,17 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=error)
     
     # Validate password
-    is_valid, error = validate_password(user_data.password)
+    is_valid, errors = validate_password(user_data.password)
+
     if not is_valid:
-        raise HTTPException(status_code=400, detail=error)
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Password requirements not met", "errors": errors}
+        )
+
+    # is_valid, error = validate_password(user_data.password)
+    # if not is_valid:
+    #     raise HTTPException(status_code=400, detail=error)
     
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -188,6 +196,11 @@ async def get_ai_quota(current_user: User = Depends(get_current_user)):
     return get_user_ai_quota(current_user)
 
 
+@app.post("/api/auth/logout")
+async def logout(current_user: User = Depends(get_current_user)):
+    return {"message": "Logout successful"}
+
+
 # ==================== CFG ENDPOINTS (PROTECTED) ====================
 
 @app.post("/api/cfg/generate", response_model=CFGResponse)
@@ -264,9 +277,9 @@ async def generate_cfg(
                 function_count=len(function_cfgs)
             )
         
-        db.add(session)
-        db.commit()
-        db.refresh(session)
+            db.add(session)
+            db.commit()
+            db.refresh(session)
         
         return CFGResponse(
             success=True,
