@@ -2,9 +2,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
-from database import get_db
-from db_models import User
-from auth import verify_token
+from .database import get_db
+from .db_models import User
+from .auth import verify_token
 from typing import Optional
 
 # Security scheme for JWT

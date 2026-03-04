@@ -4,10 +4,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from database import get_db, init_db
-from db_models import User, CFGSession
+from .database import get_db, init_db
+from .db_models import User, CFGSession
 
-from auth import (
+from .auth import (
     get_password_hash, 
     verify_password, 
     create_access_token, 
@@ -16,9 +16,9 @@ from auth import (
     validate_password,
     validate_email
 )
-from dependencies import get_current_user, get_current_user_optional
+from .dependencies import get_current_user, get_current_user_optional
 
-from models.api_models import (
+from .models.api_models import (
     UserRegister, 
     UserLogin, 
     Token, 
@@ -33,8 +33,8 @@ from models.api_models import (
 )
 
 
-from cfg_logic.frontend_converter import generate_cfg_for_code
-from models import FunctionCFG, Node, Edge
+from .cfg_logic.frontend_converter import generate_cfg_for_code
+from .models.api_models import FunctionCFG, Node, Edge
 
 import uvicorn
 import os
