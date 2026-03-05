@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from typing import List, Optional
-
+import ast
 from .database import get_db, init_db
 from .db_models import User, CFGSession
 
@@ -36,6 +36,9 @@ from .models.api_models import (
 
 
 from .cfg_logic.frontend_converter import generate_cfg_for_code
+from .cfg_logic.code_analysis import run_complete_static_analysis
+from .cfg_logic.cfg_builder import build_function_cfg
+
 from .models.api_models import FunctionCFG, Node, Edge
 
 import uvicorn
@@ -269,13 +272,28 @@ async def generate_cfg(
         
         overall_cc = sum(f.cc for f in function_cfgs)
         
+        static_analysis_results = {}
+        try:
+            tree = ast.parse(code)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    from cfg_logic.cfg_builder import build_function_cfg
+                    func_cfg = build_function_cfg(node, node.name)
+                    func_code = ast.unparse(node)
+                    
+                    analysis = run_complete_static_analysis(func_cfg, func_code)
+                    static_analysis_results[node.name] = analysis
+        except Exception as e:
+            print(f"Static analysis error: {e}")
+            static_analysis_results = {"error": str(e)}
+
         # Save to database
         if current_user:
             session = CFGSession(
                 user_id=current_user.id,
                 code=code,
                 cfg_data=result,
-                static_analysis={},  # Will populate with AI features later
+                static_analysis=static_analysis_results,  
                 overall_explanation=None,  # Will populate with AI
                 name=input_data.name,
                 description=input_data.description,
@@ -387,6 +405,39 @@ async def delete_session(
     db.commit()
     
     return {"message": "Session deleted successfully"}
+
+
+@app.post("/api/cfg/analyze-static")
+async def analyze_static(
+    input_data: CodeInput,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    try:
+        code = input_data.code.strip()
+        if not code:
+            raise HTTPException(status_code=400, detail="Code cannot be empty")
+        
+        tree = ast.parse(code)
+        results = {}
+        
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                func_cfg = build_function_cfg(node, node.name)
+                func_code = ast.unparse(node)
+                analysis = run_complete_static_analysis(func_cfg, func_code)
+                results[node.name] = analysis
+        
+        return {
+            "success": True,
+            "analysis": results
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 if __name__ == "__main__":

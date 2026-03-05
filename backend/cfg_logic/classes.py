@@ -290,6 +290,11 @@ class CFG:
         components = self._count_connected_components()
         
         cc = edges - nodes + 2 * components
+        decision_cc = self.count_decision_points() + 1
+
+        # If graph structure has anomalies, fall back to decision formula
+        if abs(cc - decision_cc) > 1:
+            return max(1, decision_cc)
         return max(1, cc)
     
     def calculate_cognitive_complexity(self) -> int:
