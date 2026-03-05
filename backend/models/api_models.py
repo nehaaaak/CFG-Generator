@@ -39,6 +39,19 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class RegisterResponse(BaseModel):
+    message: str
+    user: UserResponse
+
+
+class LoginResponse(BaseModel):
+    message: str
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+
 # ==================== CFG MODELS ====================
 
 class CodeInput(BaseModel):
@@ -56,6 +69,8 @@ class Node(BaseModel):
     x: int = 0
     y: int = 0
     line_number: Optional[int] = None
+    block_number: Optional[int] = None  
+    code_statements: Optional[List[str]] = None
 
 
 class Edge(BaseModel):
@@ -73,6 +88,7 @@ class FunctionCFG(BaseModel):
     cc: int
     metrics: Dict[str, Any]
     paths: Optional[List[List[str]]] = []
+    unreachable_code: Optional[List[Dict[str, Any]]] = []
 
 
 class CFGResponse(BaseModel):

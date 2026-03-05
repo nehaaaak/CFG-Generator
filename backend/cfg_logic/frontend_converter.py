@@ -74,21 +74,32 @@ def cfg_to_frontend(cfg: CFG, func_name: str = "main") -> FunctionCFG:
     
     # Create nodes
     nodes = []
-    for block_id, block in cfg.blocks.items():
+    block_number = 0  # Sequential counter
+    id_to_block_num = {}  # Map original ID to sequential number
+
+    for block_id, block in sorted(cfg.blocks.items()):
         # Determine node type for frontend
         node_type = _map_block_type_to_frontend(block.block_type)
         
         # Get label text
         label = _get_block_label(block)
+
+        # Get list of statement texts from the block
+        code_statements = [stmt.text for stmt in block.statements] if block.statements else [block.text]
         
+        # Assign sequential block number
+        id_to_block_num[block_id] = block_number
         nodes.append(Node(
             id=str(block_id),
             label=label,
             type=node_type,
             x=0,  # Dagre calculates layout
             y=0,
-            line_number=block.first_line
+            line_number=block.first_line,
+            block_number=block_number,  # Add sequential number
+            code_statements=code_statements  # Full code for tooltip
         ))
+        block_number += 1
     
     # Create edges
     edges = []
@@ -106,6 +117,16 @@ def cfg_to_frontend(cfg: CFG, func_name: str = "main") -> FunctionCFG:
     
     # Get execution paths
     paths = _format_paths(cfg)
+
+    # Detect unreachable code
+    unreachable_code = []
+    for block_id, block in cfg.unreachable_blocks.items():
+        if block.statements:  # Only include blocks with actual code
+            unreachable_code.append({
+                "block_id": block_id,
+                "lines": [stmt.text for stmt in block.statements],
+                "line_numbers": [stmt.line_no for stmt in block.statements]
+            })
     
     return FunctionCFG(
         name=func_name,
@@ -113,7 +134,8 @@ def cfg_to_frontend(cfg: CFG, func_name: str = "main") -> FunctionCFG:
         edges=edges,
         cc=cc,
         metrics=metrics,
-        paths=paths
+        paths=paths,
+        unreachable_code=unreachable_code
     )
 
 

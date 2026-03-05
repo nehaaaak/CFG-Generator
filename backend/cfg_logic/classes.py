@@ -99,6 +99,9 @@ class CFG:
         self.return_blocks: List[int] = []
         self.loop_headers: List[int] = []
         self.exception_blocks: List[int] = []
+
+        # Unreachable code tracking
+        self.unreachable_blocks: Dict[int, BasicBlock] = {}  # Store before deletion
         
     def new_block(self, block_type: BlockType = BlockType.PROCESS) -> int:
         """Create a new basic block"""
@@ -186,7 +189,7 @@ class CFG:
         self._remove_empty_blocks()
     
     def remove_unreachable_blocks(self):
-        """Remove blocks that are not reachable from start"""
+        """Remove blocks that are not reachable from start and store them"""
         if not self.start_block:
             return
         
@@ -207,6 +210,7 @@ class CFG:
         # Remove unreachable blocks
         for block_id in list(self.blocks.keys()):
             if block_id not in reachable:
+                self.unreachable_blocks[block_id] = self.blocks[block_id]
                 del self.blocks[block_id]
     
     def _remove_empty_blocks(self):

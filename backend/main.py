@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -24,6 +24,8 @@ from .models.api_models import (
     Token, 
     TokenRefresh,
     UserResponse,
+    RegisterResponse,
+    LoginResponse,
     CodeInput,
     CFGResponse,
     SessionResponse,
@@ -82,7 +84,7 @@ async def health(db: Session = Depends(get_db)):
 
 # ==================== AUTH ENDPOINTS ====================
 
-@app.post("/api/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/api/auth/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """Register a new user"""
     
@@ -105,7 +107,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     #     raise HTTPException(status_code=400, detail=error)
     
     # Check if user already exists
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    existing_user = db.query(User).filter(func.lower(User.email) == user_data.email.lower()).first()
     if existing_user:
         raise HTTPException(
             status_code=400,
@@ -123,10 +125,13 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
-    return new_user
+    return {
+    "message": "User created successfully!",
+    "user": new_user
+    }
 
 
-@app.post("/api/auth/login", response_model=Token)
+@app.post("/api/auth/login", response_model=LoginResponse)
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     """Login and get JWT tokens"""
     
@@ -144,6 +149,7 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
     
     return {
+        "message": "Login successful!",
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer"
