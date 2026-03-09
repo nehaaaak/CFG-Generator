@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy import Index
 from .database import Base
 import uuid
 
@@ -10,8 +11,11 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String(60), nullable=False, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+
+    is_active = Column(Integer, default=1)
 
     # ai_requests_used = Column(Integer, default=0)
     # AI Usage Tracking - Per Feature Type 
@@ -23,10 +27,11 @@ class User(Base):
     ai_requests_reset_date = Column(Date, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
     sessions = relationship("CFGSession", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User {self.email}>"
@@ -71,6 +76,9 @@ class CFGSession(Base):
 class AIResponse(Base):
     """Store AI-generated responses for caching"""
     __tablename__ = "ai_responses"
+    __table_args__ = (
+    Index("idx_ai_cache", "input_hash", "feature_type"),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(36), ForeignKey("cfg_sessions.session_id"), nullable=False)
@@ -99,8 +107,13 @@ class RefreshToken(Base):
     id = Column(Integer, primary_key=True, index=True)
     token = Column(String(500), unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
     expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked = Column(Integer, default=0)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
     
     def __repr__(self):
         return f"<RefreshToken for user {self.user_id}>"

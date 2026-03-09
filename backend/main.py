@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -14,7 +14,10 @@ from .auth import (
     create_refresh_token,
     verify_token,
     validate_password,
-    validate_email
+    validate_email,
+    set_refresh_cookie,
+    clear_refresh_cookie,
+    get_refresh_token_from_cookie
 )
 from .dependencies import get_current_user, get_current_user_optional
 
@@ -22,7 +25,6 @@ from .models.api_models import (
     UserRegister, 
     UserLogin, 
     Token, 
-    TokenRefresh,
     UserResponse,
     RegisterResponse,
     LoginResponse,
@@ -66,6 +68,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+async def root():
+    return {
+        "message": "CFG Generator API",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/health"
+    }
 
 
 @app.get("/health")
@@ -114,12 +126,13 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(
             status_code=400,
-            detail="Email already registered"
+            detail="An account with this email already exists. Try logging in instead."
         )
     
     # Create new user
     hashed_password = get_password_hash(user_data.password)
     new_user = User(
+        full_name=user_data.full_name.strip(),
         email=user_data.email,
         hashed_password=hashed_password
     )
@@ -135,61 +148,115 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
 
 
 @app.post("/api/auth/login", response_model=LoginResponse)
-async def login(user_data: UserLogin, db: Session = Depends(get_db)):
+async def login(user_data: UserLogin, response: Response, db: Session = Depends(get_db)):
     """Login and get JWT tokens"""
     
     # Find user
     user = db.query(User).filter(User.email == user_data.email).first()
+
+    if user and user.is_active == 0:
+        raise HTTPException(
+            status_code=403,
+            detail="This account has been disabled."
+        )
     
     if not user or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(
             status_code=401,
-            detail="Incorrect email or password"
+            detail="Invalid login credentials. Please check your email and password."
         )
     
     # Create tokens
     access_token = create_access_token(data={"sub": str(user.id)})
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    # Store refresh token in secure HTTP-only cookie
+    set_refresh_cookie(response, refresh_token)
     
     return {
         "message": "Login successful!",
         "access_token": access_token,
-        "refresh_token": refresh_token,
+        # "refresh_token": refresh_token,
         "token_type": "bearer"
     }
 
 
 @app.post("/api/auth/refresh", response_model=Token)
-async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)):
-    """Refresh access token using refresh token"""
-    
-    # Verify refresh token
-    payload = verify_token(token_data.refresh_token, token_type="refresh")
-    
+async def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    refresh_token = get_refresh_token_from_cookie(request)
+    if not refresh_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token cookie not found. User may not be logged in or cookie expired."
+        )
+
+    payload = verify_token(refresh_token, token_type="refresh")
+
     if payload is None:
         raise HTTPException(
             status_code=401,
-            detail="Invalid or expired refresh token"
+            detail="Invalid or expired refresh token. Please login again."
         )
-    
+
     user_id = payload.get("sub")
+
     if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-    
-    # Verify user exists
+        raise HTTPException(
+            status_code=401,
+            detail="Malformed token payload: user ID missing."
+        )
+
     user = db.query(User).filter(User.id == int(user_id)).first()
+
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    
-    # Create new tokens
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
+        raise HTTPException(
+            status_code=401,
+            detail="User associated with this token no longer exists."
+        )
+
+    new_access_token = create_access_token(data={"sub": str(user.id)})
+
+    # Optional: rotate refresh token (good practice)
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    set_refresh_cookie(response, new_refresh_token)
+
     return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
+        "access_token": new_access_token,
         "token_type": "bearer"
     }
+
+
+# @app.post("/api/auth/refresh", response_model=Token)
+# async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)):
+#     """Refresh access token using refresh token"""
+    
+#     # Verify refresh token
+#     payload = verify_token(token_data.refresh_token, token_type="refresh")
+    
+#     if payload is None:
+#         raise HTTPException(
+#             status_code=401,
+#             detail="Invalid or expired refresh token"
+#         )
+    
+#     user_id = payload.get("sub")
+#     if not user_id:
+#         raise HTTPException(status_code=401, detail="Invalid token payload")
+    
+#     # Verify user exists
+#     user = db.query(User).filter(User.id == int(user_id)).first()
+#     if not user:
+#         raise HTTPException(status_code=401, detail="User not found")
+    
+#     # Create new tokens
+#     access_token = create_access_token(data={"sub": str(user.id)})
+#     refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    
+#     return {
+#         "access_token": access_token,
+#         "refresh_token": refresh_token,
+#         "token_type": "bearer"
+#     }
 
 
 @app.get("/api/auth/me", response_model=UserResponse)
@@ -198,16 +265,19 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+@app.post("/api/auth/logout")
+async def logout(response: Response, current_user: User = Depends(get_current_user)):
+    clear_refresh_cookie(response)
+    return {
+        "message": "Logout successful. Refresh token cookie cleared."
+    }
+
+
 @app.get("/api/auth/quota", response_model=AIQuotaResponse)
 async def get_ai_quota(current_user: User = Depends(get_current_user)):
     """Get user's AI feature quota status"""
     from dependencies import get_user_ai_quota
     return get_user_ai_quota(current_user)
-
-
-@app.post("/api/auth/logout")
-async def logout(current_user: User = Depends(get_current_user)):
-    return {"message": "Logout successful"}
 
 
 # ==================== CFG ENDPOINTS (PROTECTED) ====================

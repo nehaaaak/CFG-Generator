@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 from .classes import CFG, BlockType
 from .cfg_builder import build_function_cfg, build_module_cfg, build_interprocedural_cfg
 import ast
@@ -8,13 +8,15 @@ import ast
 
 class Node:
     """Frontend node model"""
-    def __init__(self, id: str, label: str, type: str, x: int = 0, y: int = 0, line_number: int = None):
+    def __init__(self, id: str, label: str, type: str, x: int = 0, y: int = 0, line_number: int = None, block_number: int = None, code_statements: List[str] = None):
         self.id = id
         self.label = label
         self.type = type
         self.x = x
         self.y = y
         self.line_number = line_number
+        self.block_number = block_number
+        self.code_statements = code_statements or []
     
     def to_dict(self):
         return {
@@ -23,7 +25,9 @@ class Node:
             "type": self.type,
             "x": self.x,
             "y": self.y,
-            "line_number": self.line_number
+            "line_number": self.line_number,
+            "block_number": self.block_number,
+            "code_statements": self.code_statements 
         }
 
 
@@ -45,13 +49,15 @@ class Edge:
 class FunctionCFG:
     """Complete CFG for frontend consumption"""
     def __init__(self, name: str, nodes: List[Node], edges: List[Edge], 
-                 cc: int, metrics: Dict, paths: List[List[str]] = None):
+                 cc: int, metrics: Dict, paths: List[List[str]] = None,
+                 unreachable_code: List[Dict[str, Any]] = None):
         self.name = name
         self.nodes = nodes
         self.edges = edges
         self.cc = cc
         self.metrics = metrics
         self.paths = paths or []
+        self.unreachable_code = unreachable_code or []
     
     def to_dict(self):
         return {
@@ -60,7 +66,8 @@ class FunctionCFG:
             "edges": [e.to_dict() for e in self.edges],
             "cyclomatic_complexity": self.cc,
             "metrics": self.metrics,
-            "paths": self.paths
+            "paths": self.paths,
+            "unreachable_code": self.unreachable_code
         }
 
 
@@ -72,34 +79,69 @@ def cfg_to_frontend(cfg: CFG, func_name: str = "main") -> FunctionCFG:
     Dagre will handle layout in frontend (x, y set to 0).
     """
     
-    # Create nodes
+    # # Create nodes
+    # nodes = []
+    # block_number = 0  # Sequential counter
+    # id_to_block_num = {}  # Map original ID to sequential number
+
+    # for block_id, block in sorted(cfg.blocks.items()):
+    #     # Determine node type for frontend
+    #     node_type = _map_block_type_to_frontend(block.block_type)
+        
+    #     # Get label text
+    #     label = _get_block_label(block)
+
+    #     # Get list of statement texts from the block
+    #     code_statements = [stmt.text for stmt in block.statements] if block.statements else [block.text]
+        
+    #     # Assign sequential block number
+    #     id_to_block_num[block_id] = block_number
+    #     nodes.append(Node(
+    #         id=str(block_id),
+    #         label=label,
+    #         type=node_type,
+    #         x=0,  # Dagre calculates layout
+    #         y=0,
+    #         line_number=block.first_line,
+    #         block_number=block_number,  # Add sequential number
+    #         code_statements=code_statements  # Full code for tooltip
+    #     ))
+    #     block_number += 1
+    
     nodes = []
-    block_number = 0  # Sequential counter
-    id_to_block_num = {}  # Map original ID to sequential number
+    block_number = 1
+    id_to_block_num = {}
 
     for block_id, block in sorted(cfg.blocks.items()):
-        # Determine node type for frontend
+
         node_type = _map_block_type_to_frontend(block.block_type)
-        
-        # Get label text
         label = _get_block_label(block)
 
-        # Get list of statement texts from the block
-        code_statements = [stmt.text for stmt in block.statements] if block.statements else [block.text]
-        
-        # Assign sequential block number
-        id_to_block_num[block_id] = block_number
-        nodes.append(Node(
-            id=str(block_id),
-            label=label,
-            type=node_type,
-            x=0,  # Dagre calculates layout
-            y=0,
-            line_number=block.first_line,
-            block_number=block_number,  # Add sequential number
-            code_statements=code_statements  # Full code for tooltip
-        ))
-        block_number += 1
+        code_statements = (
+            [stmt.text for stmt in block.statements]
+            if block.statements
+            else [block.text]
+        )
+
+        if block.block_type in (BlockType.START, BlockType.END):
+            display_block_number = None
+        else:
+            display_block_number = block_number
+            id_to_block_num[block_id] = block_number
+            block_number += 1
+
+        nodes.append(
+            Node(
+                id=str(block_id),
+                label=label,
+                type=node_type,
+                x=0,
+                y=0,
+                line_number=block.first_line,
+                block_number=display_block_number,
+                code_statements=code_statements,
+            )
+        )
     
     # Create edges
     edges = []
@@ -120,13 +162,14 @@ def cfg_to_frontend(cfg: CFG, func_name: str = "main") -> FunctionCFG:
 
     # Detect unreachable code
     unreachable_code = []
-    for block_id, block in cfg.unreachable_blocks.items():
-        if block.statements:  # Only include blocks with actual code
-            unreachable_code.append({
-                "block_id": block_id,
-                "lines": [stmt.text for stmt in block.statements],
-                "line_numbers": [stmt.line_no for stmt in block.statements]
-            })
+    if hasattr(cfg, "unreachable_blocks"):
+        for block_id, block in cfg.unreachable_blocks.items():
+            if block.statements:  # Only include blocks with actual code
+                unreachable_code.append({
+                    "block_id": block_id,
+                    "lines": [stmt.text for stmt in block.statements],
+                    "line_numbers": [stmt.line_no for stmt in block.statements]
+                })
     
     return FunctionCFG(
         name=func_name,

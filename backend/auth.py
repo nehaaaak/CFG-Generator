@@ -2,7 +2,9 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from fastapi import Response, Request
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,17 +12,21 @@ load_dotenv()
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
+
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+REFRESH_COOKIE_NAME = "refresh_token"
 
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY not found in environment variables")
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 # ==================== PASSWORD HASHING ====================
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
@@ -88,7 +94,7 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
     return encoded_jwt
 
 
-# ==================== JWT TOKEN VERIFICATION ====================
+# ==================== TOKEN VERIFICATION ====================
 
 def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
     """
@@ -134,6 +140,42 @@ def decode_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+    
+
+# ==================== REFRESH TOKEN COOKIE ====================
+
+def set_refresh_cookie(response: Response, token: str):
+    """
+    Set refresh token in httpOnly cookie
+    """
+    secure = ENVIRONMENT == "production"
+
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=secure,
+        samesite="none" if secure else "lax",
+        max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRE_DAYS,
+        path="/auth/refresh"
+    )
+
+
+def clear_refresh_cookie(response: Response):
+    """
+    Remove refresh cookie (logout)
+    """
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path="/auth/refresh"
+    )
+
+
+def get_refresh_token_from_cookie(request: Request) -> Optional[str]:
+    """
+    Extract refresh token from request cookies
+    """
+    return request.cookies.get(REFRESH_COOKIE_NAME)
 
 
 # ==================== PASSWORD VALIDATION ====================
@@ -185,8 +227,6 @@ def validate_email(email: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_valid, error_message)
     """
-    import re
-    
     if not email:
         return False, "Email is required"
     
@@ -216,7 +256,7 @@ def get_token_expiry(token: str) -> Optional[datetime]:
     """
     payload = decode_token(token)
     if payload and "exp" in payload:
-        return datetime.fromtimestamp(payload["exp"])
+        return datetime.fromtimestamp(payload["exp"], timezone.utc)
     return None
 
 

@@ -7,6 +7,7 @@ from datetime import datetime
 
 class UserRegister(BaseModel):
     """User registration request"""
+    full_name: str = Field(..., min_length=2, max_length=60)
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=100)
 
@@ -20,19 +21,15 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     """JWT token response"""
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
-
-
-class TokenRefresh(BaseModel):
-    """Refresh token request"""
-    refresh_token: str
 
 
 class UserResponse(BaseModel):
     """User data response"""
     id: int
+    full_name: str
     email: str
+    is_active: int
     created_at: datetime
     
     class Config:
@@ -47,7 +44,6 @@ class RegisterResponse(BaseModel):
 class LoginResponse(BaseModel):
     message: str
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
 
 

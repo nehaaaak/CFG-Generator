@@ -8,7 +8,7 @@ from .auth import verify_token
 from typing import Optional
 
 # Security scheme for JWT
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -26,6 +26,12 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Please include a valid access token in the Authorization header.",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     token = credentials.credentials
     
     # Verify token
@@ -34,7 +40,7 @@ async def get_current_user(
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="Invalid or expired access token. Please refresh your session or login again.",
             headers={"WWW-Authenticate": "Bearer"}
         )
     
@@ -43,7 +49,7 @@ async def get_current_user(
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
+            detail="Invalid token payload. User identifier missing.",
             headers={"WWW-Authenticate": "Bearer"}
         )
     
@@ -53,8 +59,14 @@ async def get_current_user(
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail="User associated with this token no longer exists.",
             headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    if user.is_active == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been disabled."
         )
     
     return user
@@ -62,7 +74,6 @@ async def get_current_user(
 
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-    # credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> Optional[User]:
     """
@@ -90,7 +101,10 @@ async def get_current_user_optional(
             return None
         
         user = db.query(User).filter(User.id == int(user_id)).first()
-        return user
+
+        if user and user.is_active == 1:
+            return user
+        
     except:
         return None
 
@@ -150,7 +164,7 @@ def check_and_update_ai_quota(
     }
     
     if feature_type not in feature_map:
-        raise ValueError(f"Invalid feature type: {feature_type}")
+        raise ValueError(f"Invalid AI feature type '{feature_type}'. Allowed values: node_explain, path_explain, refactor_suggest, refactor_code, test_gen.")
     
     # Check quota
     current_usage = getattr(user, feature_map[feature_type])
@@ -158,7 +172,7 @@ def check_and_update_ai_quota(
     if current_usage >= DAILY_LIMIT_PER_FEATURE:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Daily limit reached for {feature_type}. Resets tomorrow."
+            detail=f"Daily limit reached for '{feature_type}'. Each feature can be used {DAILY_LIMIT_PER_FEATURE} times per day. Quota resets tomorrow."
         )
     
     # Increment usage
