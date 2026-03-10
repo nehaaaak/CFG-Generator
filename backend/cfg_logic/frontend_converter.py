@@ -120,7 +120,7 @@ def cfg_to_frontend(cfg: CFG, func_name: str = "main") -> FunctionCFG:
         code_statements = (
             [stmt.text for stmt in block.statements]
             if block.statements
-            else [block.text]
+            else []
         )
 
         if block.block_type in (BlockType.START, BlockType.END):
@@ -228,7 +228,9 @@ def _format_paths(cfg: CFG) -> List[List[str]]:
         for block_id in path:
             if block_id in cfg.blocks:
                 block = cfg.blocks[block_id]
-                label = _get_block_label(block)
+                # label = _get_block_label(block)
+                # path_labels.append(label)
+                label = f"B{block.id}: {_get_block_label(block)}"
                 path_labels.append(label)
         formatted_paths.append(path_labels)
     

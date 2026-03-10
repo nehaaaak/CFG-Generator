@@ -19,7 +19,7 @@ from .auth import (
     clear_refresh_cookie,
     get_refresh_token_from_cookie
 )
-from .dependencies import get_current_user, get_current_user_optional
+from .dependencies import get_current_user, get_current_user_optional, get_user_ai_quota
 
 from .models.api_models import (
     UserRegister, 
@@ -276,7 +276,6 @@ async def logout(response: Response, current_user: User = Depends(get_current_us
 @app.get("/api/auth/quota", response_model=AIQuotaResponse)
 async def get_ai_quota(current_user: User = Depends(get_current_user)):
     """Get user's AI feature quota status"""
-    from dependencies import get_user_ai_quota
     return get_user_ai_quota(current_user)
 
 
@@ -316,7 +315,9 @@ async def generate_cfg(
                     type=n["type"],
                     x=n["x"],
                     y=n["y"],
-                    line_number=n.get("line_number")
+                    line_number=n.get("line_number"),
+                    block_number=n.get("block_number"),
+                    code_statements=n.get("code_statements")
                 )
                 for n in cfg_data["nodes"]
             ]
@@ -347,7 +348,6 @@ async def generate_cfg(
             tree = ast.parse(code)
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
-                    from cfg_logic.cfg_builder import build_function_cfg
                     func_cfg = build_function_cfg(node, node.name)
                     func_code = ast.unparse(node)
                     
@@ -379,6 +379,7 @@ async def generate_cfg(
             success=True,
             functions=function_cfgs,
             overall_cc=overall_cc,
+            static_analysis=static_analysis_results,
             error=None
         )
         

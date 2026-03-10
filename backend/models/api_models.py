@@ -91,6 +91,7 @@ class CFGResponse(BaseModel):
     """Response from CFG generation"""
     success: bool
     functions: List[FunctionCFG]
+    static_analysis: Optional[Dict[str, Any]] = None
     overall_cc: int
     error: Optional[str] = None
 

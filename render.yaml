@@ -34,6 +34,12 @@ services:
       - key: ENVIRONMENT
         value: production
 
+      - key: GEMINI_API_KEY
+        sync: false
+
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+
 databases:
   - name: cfg-db
     plan: free

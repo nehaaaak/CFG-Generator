@@ -31,7 +31,7 @@ class User(Base):
     
     # Relationships
     sessions = relationship("CFGSession", back_populates="user", cascade="all, delete-orphan")
-    refresh_tokens = relationship("RefreshToken", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User {self.email}>"
@@ -113,7 +113,7 @@ class RefreshToken(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User")
+    user = relationship("User", back_populates="refresh_tokens")
     
     def __repr__(self):
         return f"<RefreshToken for user {self.user_id}>"

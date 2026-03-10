@@ -394,31 +394,71 @@ class CFG:
         
         return components
     
+    # def find_all_paths(self, max_paths: int = 20) -> List[List[int]]:
+    #     """Find all paths from start to end"""
+    #     if not self.start_block or not self.end_block:
+    #         return []
+        
+    #     paths = []
+        
+    #     def dfs(current: int, path: List[int], visited: Set[int]):
+    #         if len(paths) >= max_paths:
+    #             return
+            
+    #         if current == self.end_block:
+    #             paths.append(path)
+    #             return
+            
+    #         if current not in self.blocks or current in visited:
+    #             return
+            
+    #         visited_copy = visited.copy()
+    #         visited_copy.add(current)
+            
+    #         for succ, _ in self.blocks[current].successors:
+    #             dfs(succ, path + [succ], visited_copy)
+        
+    #     dfs(self.start_block, [self.start_block], set())
+    #     return paths
+
     def find_all_paths(self, max_paths: int = 20) -> List[List[int]]:
-        """Find all paths from start to end"""
+        """
+        Find execution paths from START to END.
+        Handles loops by allowing limited revisits.
+        """
         if not self.start_block or not self.end_block:
             return []
-        
-        paths = []
-        
-        def dfs(current: int, path: List[int], visited: Set[int]):
+
+        paths: List[List[int]] = []
+
+        def dfs(current: int, path: List[int], visit_count: Dict[int, int]):
             if len(paths) >= max_paths:
                 return
-            
+
+            if current not in self.blocks:
+                return
+
+            # Record visit
+            visit_count[current] = visit_count.get(current, 0) + 1
+
+            # Allow visiting a node at most twice (loop traversal)
+            if visit_count[current] > 2:
+                visit_count[current] -= 1
+                return
+
+            path.append(current)
+
+            # Reached END
             if current == self.end_block:
-                paths.append(path)
-                return
-            
-            if current not in self.blocks or current in visited:
-                return
-            
-            visited_copy = visited.copy()
-            visited_copy.add(current)
-            
-            for succ, _ in self.blocks[current].successors:
-                dfs(succ, path + [succ], visited_copy)
-        
-        dfs(self.start_block, [self.start_block], set())
+                paths.append(path.copy())
+            else:
+                for succ, _ in self.blocks[current].successors:
+                    dfs(succ, path, visit_count)
+
+            path.pop()
+            visit_count[current] -= 1
+
+        dfs(self.start_block, [], {})
         return paths
     
     def calculate_maintainability_index(self, lines_of_code: int, halstead_volume: float = 100) -> float:
