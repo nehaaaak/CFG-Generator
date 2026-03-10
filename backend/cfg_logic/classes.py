@@ -343,7 +343,27 @@ class CFG:
     
     def count_loops(self) -> int:
         """Count number of loops (back edges)"""
-        return len(self._find_back_edges())
+        # return len(self._find_back_edges())
+        return len(self.loop_headers)
+    
+    def count_nested_loops(self) -> int:
+        """
+        Detect nested loops using dominator relationships.
+        If loop A dominates loop B, B is nested inside A.
+        """
+        if not self.loop_headers:
+            return 0
+
+        dominators = self.get_block_dominators()
+
+        nested_count = 0
+
+        for outer in self.loop_headers:
+            for inner in self.loop_headers:
+                if outer != inner and outer in dominators.get(inner, set()):
+                    nested_count += 1
+
+        return nested_count
     
     def _find_back_edges(self) -> List[Tuple[int, int]]:
         """Find back edges (indicating loops)"""
@@ -448,12 +468,26 @@ class CFG:
 
             path.append(current)
 
-            # Reached END
-            if current == self.end_block:
-                paths.append(path.copy())
+            # Stop path if RETURN block
+            block = self.blocks[current]
+
+            if current == self.end_block or block.block_type == BlockType.RETURN:
+                # ensure path ends at END
+                if current != self.end_block and self.end_block:
+                    path_with_end = path.copy() + [self.end_block]
+                    paths.append(path_with_end)
+                else:
+                    paths.append(path.copy())
             else:
-                for succ, _ in self.blocks[current].successors:
+                for succ, _ in block.successors:
                     dfs(succ, path, visit_count)
+
+            # # Reached END
+            # if current == self.end_block:
+            #     paths.append(path.copy())
+            # else:
+            #     for succ, _ in self.blocks[current].successors:
+            #         dfs(succ, path, visit_count)
 
             path.pop()
             visit_count[current] -= 1
@@ -492,6 +526,7 @@ class CFG:
             "cognitive_complexity": self.calculate_cognitive_complexity(),
             "decision_points": self.count_decision_points(),
             "loops": self.count_loops(),
+            "nested_loops": self.count_nested_loops(),
             "max_nesting_depth": self.calculate_nesting_depth(),
             "complexity_category": self._categorize_complexity(cc),
             "risk_level": self._calculate_risk_level(cc),

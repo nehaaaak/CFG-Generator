@@ -148,14 +148,16 @@ def set_refresh_cookie(response: Response, token: str):
     """
     Set refresh token in httpOnly cookie
     """
-    is_production = os.getenv("ENVIRONMENT") == "production"
+    # is_production = os.getenv("ENVIRONMENT") == "production"
 
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=is_production,
-        samesite="none" if is_production else "lax",
+        # secure=is_production,
+        secure=False,
+        # samesite="none" if is_production else "lax",
+        samesite="Lax",
         max_age=60 * 60 * 24 * REFRESH_TOKEN_EXPIRE_DAYS,
         path="/"
     )
@@ -167,7 +169,7 @@ def clear_refresh_cookie(response: Response):
     """
     response.delete_cookie(
         key=REFRESH_COOKIE_NAME,
-        path="/auth/refresh"
+        path="/api/auth/refresh"
     )
 
 

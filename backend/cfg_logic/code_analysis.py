@@ -540,14 +540,18 @@ class ComplexityHotspotDetector:
                 "recommendation": "Consider extracting loop bodies into separate functions"
             })
         
-        # Check for nested loops (back edges within back edges)
-        back_edges = self.cfg._find_back_edges()
-        nested_loops = 0
+        # # Check for nested loops (back edges within back edges)
+        # back_edges = self.cfg._find_back_edges()
+        # nested_loops = 0
         
-        for src, dst in back_edges:
-            # Check if there are other back edges in the path from dst to src
-            if self._has_nested_loop(dst, src, back_edges):
-                nested_loops += 1
+        # for src, dst in back_edges:
+        #     # Check if there are other back edges in the path from dst to src
+        #     if self._has_nested_loop(dst, src, back_edges):
+        #         nested_loops += 1
+
+        # Detect nested loops using CFG dominators
+        nested_loops = self.cfg.count_nested_loops()
+
         
         if nested_loops > 0:
             hotspots.append({
@@ -555,19 +559,19 @@ class ComplexityHotspotDetector:
                 "severity": "high",
                 "message": f"Detected {nested_loops} nested loops",
                 "nested_count": nested_loops,
-                "recommendation": "Nested loops can be hard to understand and optimize"
+                "recommendation": "Nested loops can increase algorithmic complexity (O(n²) or worse)"
             })
         
         return hotspots
     
-    def _has_nested_loop(self, start: int, end: int, back_edges: List[Tuple[int, int]]) -> bool:
-        """Check if there's a nested loop in the path"""
-        for src, dst in back_edges:
-            if src != start and dst != end:
-                # Simple heuristic: check if this back edge is between start and end
-                if start <= src <= end and start <= dst <= end:
-                    return True
-        return False
+    # def _has_nested_loop(self, start: int, end: int, back_edges: List[Tuple[int, int]]) -> bool:
+    #     """Check if there's a nested loop in the path"""
+    #     for src, dst in back_edges:
+    #         if src != start and dst != end:
+    #             # Simple heuristic: check if this back edge is between start and end
+    #             if start <= src <= end and start <= dst <= end:
+    #                 return True
+    #     return False
     
     def _detect_deep_nesting(self) -> List[Dict]:
         """Detect deep nesting"""
