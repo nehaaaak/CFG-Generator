@@ -461,10 +461,19 @@ class CFG:
             # Record visit
             visit_count[current] = visit_count.get(current, 0) + 1
 
-            # Allow visiting a node at most twice (loop traversal)
-            if visit_count[current] > 2:
+            #EXTRA            
+            block = self.blocks[current]
+            # Loop headers may be visited twice
+            limit = 2 if block.block_type == BlockType.LOOP_HEADER else 1
+
+            if visit_count[current] > limit:
                 visit_count[current] -= 1
                 return
+
+            # # Allow visiting a node at most twice (loop traversal)
+            # if visit_count[current] > 2:
+            #     visit_count[current] -= 1
+            #     return
 
             path.append(current)
 
@@ -513,21 +522,72 @@ class CFG:
         
         return round(mi_normalized, 2)
     
+    def get_critical_path(self) -> List[int]:
+        """
+        Estimate critical execution path (longest acyclic path).
+        """
+        memo = {}
+
+        def dfs(node, visited):
+            if node in visited:
+                return []
+
+            if node == self.end_block:
+                return [node]
+
+            if node in memo:
+                return memo[node]
+
+            visited.add(node)
+
+            longest = []
+            for succ, _ in self.blocks[node].successors:
+                path = dfs(succ, visited.copy())
+                if len(path) > len(longest):
+                    longest = path
+
+            result = [node] + longest
+            memo[node] = result
+            return result
+
+        if not self.start_block:
+            return []
+
+        return dfs(self.start_block, set())
+    
+    def get_decision_nodes(self) -> List[int]:
+        """
+        Return nodes representing decision points.
+        """
+        return [
+            block_id
+            for block_id, block in self.blocks.items()
+            if block.block_type in (BlockType.DECISION, BlockType.LOOP_HEADER)
+        ]
+    
     def get_comprehensive_metrics(self) -> Dict:
         """Get all metrics in one call"""
         edges = sum(len(block.successors) for block in self.blocks.values())
         nodes = len(self.blocks)
         cc = self.calculate_cyclomatic_complexity()
+        loc = sum(len(block.statements) for block in self.blocks.values())
+        mi = self.calculate_maintainability_index(loc)
+        critical_path = self.get_critical_path()
+        decision_nodes = self.get_decision_nodes()
         
         return {
             "nodes": nodes,
             "edges": edges,
+            "lines_of_code": loc,
             "cyclomatic_complexity": cc,
             "cognitive_complexity": self.calculate_cognitive_complexity(),
+            "maintainability_index": mi,    
             "decision_points": self.count_decision_points(),
             "loops": self.count_loops(),
             "nested_loops": self.count_nested_loops(),
             "max_nesting_depth": self.calculate_nesting_depth(),
+            "decision_nodes": decision_nodes,
+            "critical_path_length": len(critical_path),
             "complexity_category": self._categorize_complexity(cc),
             "risk_level": self._calculate_risk_level(cc),
         }
