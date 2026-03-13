@@ -91,8 +91,10 @@ class CFGResponse(BaseModel):
     """Response from CFG generation"""
     success: bool
     functions: List[FunctionCFG]
-    static_analysis: Optional[Dict[str, Any]] = None
     overall_cc: int
+    static_analysis: Optional[Dict[str, Any]] = None
+    ai_explanation: Optional[str] = None
+    session_id: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -186,6 +188,14 @@ class AIResponse(BaseModel):
     content: str
     tokens_used: Optional[int] = None
     cached: bool = False
+    error: Optional[str] = None
+
+
+class AINodeExplainResponse(BaseModel):
+    """Response from node explanation"""
+    explanation: str
+    tokens_used: int
+    cached: bool
     error: Optional[str] = None
 
 

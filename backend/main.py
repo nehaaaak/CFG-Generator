@@ -19,7 +19,7 @@ from .auth import (
     clear_refresh_cookie,
     get_refresh_token_from_cookie
 )
-from .dependencies import get_current_user, get_current_user_optional, get_user_ai_quota
+from .dependencies import get_current_user, get_current_user_optional, get_user_ai_quota, check_and_update_ai_quota
 
 from .models.api_models import (
     UserRegister, 
@@ -33,6 +33,8 @@ from .models.api_models import (
     SessionResponse,
     SessionListItem,
     SessionUpdate,
+    AINodeExplainRequest,
+    AINodeExplainResponse,
     AIQuotaResponse  
 )
 
@@ -42,6 +44,9 @@ from .cfg_logic.code_analysis import run_complete_static_analysis
 from .cfg_logic.cfg_builder import build_function_cfg
 
 from .models.api_models import FunctionCFG, Node, Edge
+
+from .ai.services.overall_explainer import generate_from_static_analysis as generate_overall_explanation_ai
+from .ai.services.node_explainer import explain_node
 
 import uvicorn
 import os
@@ -279,7 +284,7 @@ async def get_ai_quota(current_user: User = Depends(get_current_user)):
     return get_user_ai_quota(current_user)
 
 
-# ==================== CFG ENDPOINTS (PROTECTED) ====================
+# ==================== CFG ENDPOINTS ====================
 
 @app.post("/api/cfg/generate", response_model=CFGResponse)
 async def generate_cfg(
@@ -357,6 +362,24 @@ async def generate_cfg(
             print(f"Static analysis error: {e}")
             static_analysis_results = {"error": str(e)}
 
+        # Generate AI explanation (PUBLIC-for all users)
+        overall_ai_explanation = None
+        try:
+            # Collect unreachable code from all functions
+            all_unreachable = []
+            for func_cfg in function_cfgs:
+                if hasattr(func_cfg, 'unreachable_code') and func_cfg.unreachable_code:
+                    all_unreachable.extend(func_cfg.unreachable_code)
+            
+            overall_ai_explanation = generate_overall_explanation_ai(
+                result, 
+                static_analysis_results,
+                all_unreachable
+            )
+        except Exception as e:
+            print(f"AI explanation error: {e}")
+            overall_ai_explanation = None
+
         # Save to database
         if current_user:
             session = CFGSession(
@@ -364,7 +387,7 @@ async def generate_cfg(
                 code=code,
                 cfg_data=result,
                 static_analysis=static_analysis_results,  
-                overall_explanation=None,  # Will populate with AI
+                overall_explanation=overall_ai_explanation,
                 name=input_data.name,
                 description=input_data.description,
                 overall_cc=overall_cc,
@@ -374,12 +397,16 @@ async def generate_cfg(
             db.add(session)
             db.commit()
             db.refresh(session)
-        
+
+        session_id_to_return = session.session_id if current_user and session else None
+
         return CFGResponse(
             success=True,
             functions=function_cfgs,
             overall_cc=overall_cc,
             static_analysis=static_analysis_results,
+            ai_explanation=overall_ai_explanation,
+            session_id=session_id_to_return,
             error=None
         )
         
@@ -509,6 +536,39 @@ async def analyze_static(
             "success": False,
             "error": str(e)
         }
+
+
+# ==================== AI ENDPOINTS ====================
+@app.post("/api/ai/explain-node", response_model=AINodeExplainResponse)
+async def explain_node(
+    request: AINodeExplainRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Explain a specific CFG node (Protected - 2/day limit)
+    """
+    # Check quota
+    try:
+        check_and_update_ai_quota(current_user, "node_explain", db)
+    except HTTPException as e:
+        raise e
+    
+    # Generate explanation
+    result = explain_node(
+        session_id=request.session_id,
+        function_name=request.function_name,
+        node_id=request.node_id,
+        db=db
+    )
+    
+    return AINodeExplainResponse(
+        explanation=result["explanation"],
+        tokens_used=result["tokens_used"],
+        cached=result["cached"],
+        error=result.get("error")
+    )
+
 
 
 if __name__ == "__main__":
