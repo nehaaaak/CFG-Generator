@@ -35,6 +35,10 @@ from .models.api_models import (
     SessionUpdate,
     AINodeExplainRequest,
     AINodeExplainResponse,
+    AIPathExplainRequest,
+    AIPathExplainResponse,
+    AIRefactorSuggestRequest,
+    AIRefactorSuggestResponse,
     AIQuotaResponse  
 )
 
@@ -47,6 +51,8 @@ from .models.api_models import FunctionCFG, Node, Edge
 
 from .ai.services.overall_explainer import generate_from_static_analysis as generate_overall_explanation_ai
 from .ai.services.node_explainer import explain_node
+from .ai.services.path_explainer import explain_path
+from .ai.services.refactor_suggester import suggest_refactoring
 
 import uvicorn
 import os
@@ -180,6 +186,8 @@ async def login(user_data: UserLogin, response: Response, db: Session = Depends(
     
     return {
         "message": "Login successful!",
+        "full_name": user.full_name,
+        "user_id": user.id,
         "access_token": access_token,
         # "refresh_token": refresh_token,
         "token_type": "bearer"
@@ -568,6 +576,78 @@ async def explain_node(
         cached=result["cached"],
         error=result.get("error")
     )
+
+
+@app.post("/api/ai/explain-path", response_model=AIPathExplainResponse)
+async def explain_path(
+    request: AIPathExplainRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Explain an execution path through the CFG (Protected - 2/day limit)
+    """
+    # Check quota
+    try:
+        check_and_update_ai_quota(current_user, "path_explain", db)
+    except HTTPException as e:
+        raise e
+    
+    # Generate explanation
+    result = explain_path(
+        session_id=request.session_id,
+        function_name=request.function_name,
+        path_node_ids=request.path_node_ids,
+        db=db
+    )
+    
+    return AIPathExplainResponse(
+        explanation=result["explanation"],
+        tokens_used=result["tokens_used"],
+        cached=result["cached"],
+        error=result.get("error")
+    )
+
+
+@app.post("/api/ai/refactor-suggest", response_model=AIRefactorSuggestResponse)
+async def refactor_suggest(
+    request: AIRefactorSuggestRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get AI refactoring suggestions (Protected - 2/day limit)
+    """
+    # Check quota
+    try:
+        check_and_update_ai_quota(current_user, "refactor_suggest", db)
+    except HTTPException as e:
+        raise e
+    
+    # Generate suggestions
+    result = suggest_refactoring(
+        session_id=request.session_id,
+        function_name=request.function_name,
+        db=db
+    )
+
+    if result.get("error"):
+        return AIRefactorSuggestResponse(
+            parsed_suggestions=[],
+            suggestions=result.get("suggestions", ""),
+            tokens_used=result.get("tokens_used", 0),
+            cached=result.get("cached", False),
+            error=result["error"]
+        )
+    
+    return AIRefactorSuggestResponse(
+        parsed_suggestions=result.get("parsed_suggestions", []),
+        suggestions=result.get("suggestions", ""),
+        tokens_used=result["tokens_used"],
+        cached=result["cached"],
+        error=result.get("error")
+    )
+
 
 
 

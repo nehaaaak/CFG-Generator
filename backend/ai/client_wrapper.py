@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai 
+from google.genai import types
 import os
 from dotenv import load_dotenv
 
@@ -9,15 +10,14 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 if not GEMINI_API_KEY:
     print("GEMINI_API_KEY not configured. AI features disabled.")
-    model = None
+    client = None
 else:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(GEMINI_MODEL)
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 def generate_completion(
     prompt: str,
-    max_tokens: int = 180,
+    max_tokens: int = 300,
     temperature: float = 0.3
 ) -> dict:
     """
@@ -30,7 +30,7 @@ def generate_completion(
             "error": str | None
         }
     """
-    if not model:
+    if not client:
         return {
             "text": "AI features unavailable - API key not configured",
             "tokens_used": 0,
@@ -38,14 +38,20 @@ def generate_completion(
         }
     
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
                 max_output_tokens=max_tokens,
                 temperature=temperature,
             ),
-            request_options={"timeout": 20}
+            # request_options={"timeout": 20}
         )
+
+        # Truncation guard
+        candidate = response.candidates[0]
+        if candidate.finish_reason.name == "MAX_TOKENS":
+            print(f"WARNING: Response was truncated at max_tokens limit ({max_tokens})")
         
         tokens_used = 0
         try:
@@ -62,6 +68,13 @@ def generate_completion(
             text = response.text.strip()
         elif response.candidates:
             text = response.candidates[0].content.parts[0].text.strip()
+
+        if not text or len(text) < 10:
+            return {
+                "text": "",
+                "tokens_used": tokens_used,
+                "error": "Empty or incomplete response from AI"
+            }
         
         return {
             "text": text,
@@ -79,4 +92,4 @@ def generate_completion(
 
 def is_available() -> bool:
     """Check if AI service is available"""
-    return model is not None
+    return client is not None

@@ -63,16 +63,16 @@ def build_prompt(
     # Build prompt
     prompt = f"""ROLE: You are a Control Flow Graph (CFG) analyst specializing in execution flow.
 
-    TASK: Explain how block {block_id} behaves within the control flow graph and how execution flows through it.
+TASK: Explain how block {block_id} behaves within the control flow graph and how execution flowsthrough it.
 
-    FUNCTION: {function_name}
+FUNCTION: {function_name}
 
-    CURRENT BLOCK: {block_id} (Type: {block_type})
+CURRENT BLOCK: {block_id} (Type: {block_type})
 
-    Code:
-    {code_display}
+Code:
+{code_display}
 
-    """
+"""
     
     # Add predecessor context
     if predecessors:
@@ -84,10 +84,17 @@ def build_prompt(
             edge_label = pred.get("edge_label", "")
             pred_code = pred.get("code", "")
             
-            edge_info = f" [{edge_label}]" if edge_label else ""
-            code_info = f": {pred_code}" if pred_code else ""
+            # edge_info = f" [{edge_label}]" if edge_label else ""
+            # code_info = f": {pred_code}" if pred_code else ""
             
-            prompt += f"  From {pred_id}{edge_info}{code_info}\n"
+            # prompt += f"  From {pred_id}{edge_info}{code_info}\n"
+
+            if edge_label and pred_code:
+                prompt += f"  From {pred_id} when ({pred_code}) evaluated {edge_label}\n"
+            elif pred_code:
+                prompt += f"  From {pred_id} after executing ({pred_code})\n"
+            else:
+                prompt += f"  From {pred_id}\n"
         prompt += "\n"
     
     # Add successor context
@@ -113,7 +120,10 @@ def build_prompt(
         # prompt += "─────────────────────────────────────────────────────────\n"
         loop_header = loop_context.get("loop_header", "Unknown")
         loop_type = loop_context.get("loop_type", "loop")
-        prompt += f"  This block is inside a {loop_type} loop (header: {loop_header})\n\n"
+        loop_role = loop_context.get("loop_role")
+        # prompt += f"  This block is inside a {loop_type} loop (header: {loop_header})\n\n"
+        role_text = f" as {loop_role.replace('_',' ')}" if loop_role else ""
+        prompt += f"  This block participates in a {loop_type} loop{role_text} (header: {loop_header})\n\n"
     
     # Add execution paths
     if paths_through_node:
@@ -129,52 +139,129 @@ def build_prompt(
     
     # Output instructions
     prompt += """
-    OUTPUT INSTRUCTIONS:
+OUTPUT INSTRUCTIONS:
 
-    Provide a clear 3-4 sentence explanation covering:
+Provide a clear 2-3 sentence explanation covering:
 
-    1. PURPOSE: What this block does in the control flow
-    - Include actual code in parentheses when referencing conditions/statements
-    - Example: "checks if the score is at least 75 (score >= 75)"
+1. PURPOSE: What this block does in the control flow
+- Include actual code in parentheses when referencing conditions/statements
+- Example: "checks if the score is at least 75 (score >= 75)"
 
-    2. CONTEXT: How execution reaches this block
-    - Mention predecessor conditions that led here
-    - Example: "reached when the first condition was false"
+2. CONTEXT: How execution reaches this block
+- Mention predecessor conditions that led here
+- Example: "reached when the first condition was false"
 
-    3. BEHAVIOR: What happens based on this block's execution
-    - Explain outgoing paths and their conditions
-    - Example: "if true, returns 'B' and exits; otherwise continues to check..."
+3. BEHAVIOR: What happens based on this block's execution
+- Explain outgoing paths and their conditions
+- Example: "if true, returns 'B' and exits; otherwise continues to check..."
 
-    4. ROLE: This block's role in the overall flow
-    - Is it a critical decision point, loop guard, return path, etc.
+STYLE:
+- Be specific and reference actual code statements in parentheses
+- Explain control flow behavior, not just what the code does
+- Use clear, educational language
+- Focus on graph structure and execution paths
 
-    STYLE:
-    - Be specific and reference actual code statements in parentheses
-    - Explain control flow behavior, not just what the code does
-    - Use clear, educational language
-    - Focus on graph structure and execution paths
-
-    EXPLANATION:"""
+Start naturally ("Block B{block_id}...", "This block...", "When execution reaches...").
+No labels or prefixes. Write the explanation now:"""
     
+    # return prompt
     return prompt
 
+
+# 4. ROLE: This block's role in the overall flow
+#     - Is it a critical decision point, loop guard, return path, etc.
+
+# def detect_loop_context(node, cfg_nodes, cfg_edges):
+#     """
+#     Detect loop context for a node:
+#     - loop_header
+#     - loop_body
+#     - loop_exit
+#     """
+
+#     node_id = node["id"]
+
+#     # Build adjacency map
+#     successors = {}
+#     for edge in cfg_edges:
+#         src = edge["from_node"]
+#         dst = edge["to_node"]
+#         successors.setdefault(src, []).append(dst)
+
+#     # Detect back edges using DFS
+#     visited = set()
+#     stack = set()
+#     back_edges = []
+
+#     def dfs(n):
+#         visited.add(n)
+#         stack.add(n)
+
+#         for succ in successors.get(n, []):
+#             if succ not in visited:
+#                 dfs(succ)
+#             elif succ in stack:
+#                 back_edges.append((n, succ))
+
+#         stack.remove(n)
+
+#     if successors:
+#         dfs(list(successors.keys())[0])
+
+#     # Identify loop structures
+#     for src, dst in back_edges:
+
+#         # dst = loop header
+#         header_node = next((n for n in cfg_nodes if n["id"] == dst), None)
+
+#         if node_id == dst:
+#             return {
+#                 "is_in_loop": True,
+#                 "loop_header": f"B{header_node.get('block_number')}",
+#                 "loop_role": "loop_header",
+#                 "loop_type": "loop"
+#             }
+
+#         if node_id == src:
+#             return {
+#                 "is_in_loop": True,
+#                 "loop_header": f"B{header_node.get('block_number')}",
+#                 "loop_role": "loop_back_edge",
+#                 "loop_type": "loop"
+#             }
+
+#     # Detect loop body nodes
+#     for src, dst in back_edges:
+#         if node_id != dst:
+#             return {
+#                 "is_in_loop": True,
+#                 "loop_header": f"B{dst}",
+#                 "loop_role": "loop_body",
+#                 "loop_type": "loop"
+#             }
+
+#     return None
 
 def detect_loop_context(node, cfg_nodes, cfg_edges):
     """
     Detect loop context for a node:
     - loop_header
+    - loop_back_edge
     - loop_body
-    - loop_exit
     """
 
     node_id = node["id"]
 
-    # Build adjacency map
+    # Build adjacency
     successors = {}
+    predecessors = {}
+
     for edge in cfg_edges:
         src = edge["from_node"]
         dst = edge["to_node"]
+
         successors.setdefault(src, []).append(dst)
+        predecessors.setdefault(dst, []).append(src)
 
     # Detect back edges using DFS
     visited = set()
@@ -196,34 +283,36 @@ def detect_loop_context(node, cfg_nodes, cfg_edges):
     if successors:
         dfs(list(successors.keys())[0])
 
-    # Identify loop structures
+    # Analyze loop roles
     for src, dst in back_edges:
-
-        # dst = loop header
         header_node = next((n for n in cfg_nodes if n["id"] == dst), None)
+        header_block = f"B{header_node.get('block_number')}" if header_node else f"B{dst}"
 
+        # Loop header
         if node_id == dst:
             return {
                 "is_in_loop": True,
-                "loop_header": f"B{header_node.get('block_number')}",
+                "loop_header": header_block,
                 "loop_role": "loop_header",
                 "loop_type": "loop"
             }
 
+        # Back edge node
         if node_id == src:
             return {
                 "is_in_loop": True,
-                "loop_header": f"B{header_node.get('block_number')}",
+                "loop_header": header_block,
                 "loop_role": "loop_back_edge",
                 "loop_type": "loop"
             }
 
-    # Detect loop body nodes
-    for src, dst in back_edges:
-        if node_id != dst:
+        # Loop body heuristic
+        preds = predecessors.get(node_id, [])
+
+        if dst in preds:
             return {
                 "is_in_loop": True,
-                "loop_header": f"B{dst}",
+                "loop_header": header_block,
                 "loop_role": "loop_body",
                 "loop_type": "loop"
             }
@@ -241,6 +330,9 @@ def format_node_context_for_prompt(
     Helper to extract and format node context from CFG data.
     Returns formatted data ready for build_prompt().
     """
+    # Fast node lookup (O(1) instead of repeated list scans)
+    node_lookup = {n["id"]: n for n in cfg_nodes}
+
     # block_id = node.get("block_number") or node.get("id")
     block_number = node.get("block_number")
     block_id = f"B{block_number}" if block_number else node.get("id")
@@ -249,7 +341,8 @@ def format_node_context_for_prompt(
     predecessors = []
     for edge in cfg_edges:
         if edge["to_node"] == node["id"]:
-            pred_node = next((n for n in cfg_nodes if n["id"] == edge["from_node"]), None)
+            # pred_node = next((n for n in cfg_nodes if n["id"] == edge["from_node"]), None)
+            pred_node = node_lookup.get(edge["from_node"])
             if pred_node:
                 predecessors.append({
                     # "block_id": f"B{pred_node.get('block_number', pred_node['id'])}",
@@ -262,7 +355,8 @@ def format_node_context_for_prompt(
     successors = []
     for edge in cfg_edges:
         if edge["from_node"] == node["id"]:
-            succ_node = next((n for n in cfg_nodes if n["id"] == edge["to_node"]), None)
+            # succ_node = next((n for n in cfg_nodes if n["id"] == edge["to_node"]), None)
+            succ_node = node_lookup.get(edge["to_node"])
             if succ_node:
                 successors.append({
                     # "block_id": f"B{succ_node.get('block_number', succ_node['id'])}",
@@ -290,7 +384,8 @@ def format_node_context_for_prompt(
     line_numbers = [line_no] * len(code_statements) if line_no else []
     return {
         "node_data": {
-            "block_id": f"B{block_id}",
+            # "block_id": f"B{block_id}",
+            "block_id": block_id,
             # "code_statements": node.get("code_statements", [node.get("label", "")]),
             "code_statements": code_statements,
             "block_type": node.get("type", "process"),

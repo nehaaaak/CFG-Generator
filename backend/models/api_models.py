@@ -43,6 +43,8 @@ class RegisterResponse(BaseModel):
 
 class LoginResponse(BaseModel):
     message: str
+    full_name: str
+    user_id: int
     access_token: str
     token_type: str = "bearer"
 
@@ -194,6 +196,32 @@ class AIResponse(BaseModel):
 class AINodeExplainResponse(BaseModel):
     """Response from node explanation"""
     explanation: str
+    tokens_used: int
+    cached: bool
+    error: Optional[str] = None
+
+
+class AIPathExplainResponse(BaseModel):
+    """Response from path explanation"""
+    explanation: str
+    tokens_used: int
+    cached: bool
+    error: Optional[str] = None
+
+
+class RefactorSuggestionItem(BaseModel):
+    priority: int
+    refactoring: str
+    problem: str
+    solution: str
+    benefit: str
+    lines: str
+
+
+class AIRefactorSuggestResponse(BaseModel):
+    """Response with refactoring suggestions"""
+    parsed_suggestions: List[RefactorSuggestionItem]
+    suggestions: str
     tokens_used: int
     cached: bool
     error: Optional[str] = None

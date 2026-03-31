@@ -1,6 +1,7 @@
 from typing import Dict, Set, List, Tuple, Optional
 from .classes import CFG, BasicBlock, BlockType
 import re
+import math
 
 
 class DataFlowAnalyzer:
@@ -9,8 +10,23 @@ class DataFlowAnalyzer:
     def __init__(self, cfg: CFG):
         self.cfg = cfg
         self.variables: Set[str] = set()
+        self.parameters = self._extract_parameters()
         self._extract_variables()
     
+    def _extract_parameters(self):
+        params = set()
+        for block in self.cfg.blocks.values():
+            for stmt in block.statements:
+                if stmt.text.startswith("def "):
+                    match = re.search(r'def\s+\w+\((.*?)\)', stmt.text)
+                    if match:
+                        param_list = match.group(1).split(',')
+                        for p in param_list:
+                            p = p.strip()
+                            if p:
+                                params.add(p)
+        return params
+
     def _extract_variables(self):
         """Extract all variable names from CFG"""
         for block in self.cfg.blocks.values():
@@ -28,6 +44,16 @@ class DataFlowAnalyzer:
             'del', 'global', 'nonlocal', 'async', 'await', 'match', 'case'
         }
         self.variables -= keywords
+
+    def _is_assignment(self, text: str) -> bool:
+        """Check if a statement is an assignment, not a comparison"""
+        return (
+            '=' in text and
+            '==' not in text and
+            '!=' not in text and
+            '<=' not in text and
+            '>=' not in text
+        )
     
     def reaching_definitions(self) -> Dict[int, Set[Tuple[int, str]]]:
         """
@@ -44,13 +70,30 @@ class DataFlowAnalyzer:
         kill = {}  # Definitions killed by each block
         
         # For each block, compute GEN and KILL
+        # for block_id, block in self.cfg.blocks.items():
+        #     gen[block_id] = set()
+        #     kill[block_id] = set()
+        # Find entry block
+        entry_block_id = None
+        for block_id, block in self.cfg.blocks.items():
+            if not block.predecessors:
+                entry_block_id = block_id
+                break
+        if entry_block_id is None and self.cfg.blocks:
+            entry_block_id = next(iter(self.cfg.blocks))
+
         for block_id, block in self.cfg.blocks.items():
             gen[block_id] = set()
             kill[block_id] = set()
+
+            # Treat parameters as defined at entry block
+            if block_id == entry_block_id:
+                for param in self.parameters:
+                    gen[block_id].add((block_id, param))
             
             for stmt in block.statements:
                 # Find assignments (simple heuristic)
-                if '=' in stmt.text and not any(op in stmt.text for op in ['==', '!=', '<=', '>=']):
+                if self._is_assignment(stmt.text):
                     # Extract variable being assigned to
                     parts = stmt.text.split('=')
                     if len(parts) >= 2:
@@ -119,7 +162,7 @@ class DataFlowAnalyzer:
                 vars_in_stmt = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', stmt.text)
                 
                 # Check if this is an assignment
-                is_assignment = '=' in stmt.text and '==' not in stmt.text and '<=' not in stmt.text and '>=' not in stmt.text
+                is_assignment = self._is_assignment(stmt.text)
                 
                 if is_assignment:
                     parts = stmt.text.split('=', 1)
@@ -129,8 +172,13 @@ class DataFlowAnalyzer:
                         
                         # Variables on RHS are used
                         rhs_vars = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', rhs)
+                        # for v in rhs_vars:
+                        #     if v in self.variables and v not in defined_in_block:
+                        #         use[block_id].add(v)
                         for v in rhs_vars:
-                            if v in self.variables and v not in defined_in_block:
+                            if v not in self.variables or v in self.parameters:
+                                continue
+                            if v not in defined_in_block:
                                 use[block_id].add(v)
                         
                         # Variable on LHS is defined
@@ -142,8 +190,13 @@ class DataFlowAnalyzer:
                                 defined_in_block.add(lhs_var)
                 else:
                     # All variables are uses
+                    # for v in vars_in_stmt:
+                    #     if v in self.variables and v not in defined_in_block:
+                    #         use[block_id].add(v)
                     for v in vars_in_stmt:
-                        if v in self.variables and v not in defined_in_block:
+                        if v not in self.variables or v in self.parameters:
+                            continue
+                        if v not in defined_in_block:
                             use[block_id].add(v)
         
         # Backward data flow analysis
@@ -186,6 +239,12 @@ class DataFlowAnalyzer:
         reaching = self.reaching_definitions()
         chains = {}
         
+        # Add parameter definitions
+        for param in self.parameters:
+            key = (-1, param)
+            if key not in chains:
+                chains[key] = set()
+
         for block_id, block in self.cfg.blocks.items():
             # Find uses in this block
             for stmt_idx, stmt in enumerate(block.statements):
@@ -226,9 +285,21 @@ class DataFlowAnalyzer:
                             var = var_match.group(1)
                             if var in self.variables:
                                 all_defs.add((block_id, var))
+
+        # Treat function parameters as already defined
+        for param in self.parameters:
+            all_defs.add((-1, param))
         
-        # Check which definitions have no uses
+        # # Check which definitions have no uses
+        # for def_block, var in all_defs:
+        #     if (def_block, var) not in chains or len(chains[(def_block, var)]) == 0:
+        #         unused.append((def_block, var))
+
         for def_block, var in all_defs:
+            # NEVER mark parameters as unused
+            if var in self.parameters:
+                continue
+
             if (def_block, var) not in chains or len(chains[(def_block, var)]) == 0:
                 unused.append((def_block, var))
         
@@ -352,10 +423,15 @@ class CodeSmellDetector:
         magic_numbers = []
         
         for line_no, line in enumerate(self.lines, 1):
+            # Ignore conditions
+            if re.search(r'\b(if|elif|while)\b', line):
+                continue
+
             # Find numbers that aren't 0, 1, or -1
             numbers = re.findall(r'\b(\d+)\b', line)
             for num in numbers:
-                if num not in ['0', '1'] and len(num) > 1:
+                # if num not in ['0', '1', '2'] and len(num) > 1:
+                if num not in ['0', '1', '2']:
                     magic_numbers.append({
                         "number": num,
                         "line": line_no,
@@ -658,8 +734,6 @@ class HalsteadMetrics:
                 "difficulty": 0,
                 "effort": 0
             }
-        
-        import math
         
         vocabulary = n1 + n2
         length = N1 + N2

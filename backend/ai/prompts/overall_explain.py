@@ -77,6 +77,7 @@ AVOID:
 
 Describe how execution progresses through the CFG as if explaining the graph to someone visually.
 
-CFG EXPLANATION:"""
+Start naturally ("This CFG...", "The control flow...", "Execution here...").
+No labels or prefixes. Write the explanation now:"""
     
     return prompt

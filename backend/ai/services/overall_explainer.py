@@ -30,11 +30,11 @@ def generate_overall_explanation(
         unreachable_code
     )
     
-    # Generate completion (max 150 tokens for free tier)
+    # Generate completion (max 180 tokens for free tier)
     result = generate_completion(
         prompt=prompt,
-        max_tokens=180,
-        temperature=0.3
+        max_tokens=300,
+        temperature=0.4
     )
     
     return {
