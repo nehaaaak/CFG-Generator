@@ -124,7 +124,7 @@ def build_prompt(
     #             })
 
     decision_points = []
-    for i in range(len(edge_conditions)):
+    for i in range(min(len(edge_conditions), len(path_blocks))):
         condition_taken = (edge_conditions[i] or "").strip()
 
         # Skip edges without real conditions
@@ -204,7 +204,7 @@ Loop Headers: {path_metrics['loops']}
     prompt += """
 OUTPUT INSTRUCTIONS:
 
-Provide a 4 sentence explanation covering:
+Provide a 4 concise lines explanation covering:
 
 1. PATH TYPE: Mention what kind of execution path this represents
 (e.g., early return, loop iteration, normal completion)
@@ -262,7 +262,9 @@ def extract_path_from_selection(
     for node_id in selected_node_ids:
         node = next((n for n in cfg_nodes if n["id"] == node_id), None)
         if node:
-            block_id = f"B{node.get('block_number', node['id'])}"
+            # block_id = f"B{node.get('block_number', node['id'])}"
+            bn = node.get('block_number')
+            block_id = f"B{bn}" if bn is not None else node.get('id', '?')
             if node["type"] == "start":
                 block_id = "START"
             elif node["type"] == "end":

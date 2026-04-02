@@ -189,7 +189,7 @@ def explain_node(
     
     result = generate_completion(
         prompt=prompt,
-        max_tokens=250,  # Slightly longer for detailed explanation
+        max_tokens=300,  # Slightly longer for detailed explanation
         temperature=0.4
     )
     

@@ -127,7 +127,7 @@ def explain_path(
     
     result = generate_completion(
         prompt=prompt,
-        max_tokens=280,
+        max_tokens=300,
         temperature=0.4
     )
     

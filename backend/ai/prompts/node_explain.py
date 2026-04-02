@@ -141,7 +141,7 @@ Code:
     prompt += """
 OUTPUT INSTRUCTIONS:
 
-Provide a clear 2-3 sentence explanation covering:
+Provide a clear 2-3 concise sentence explanation covering:
 
 1. PURPOSE: What this block does in the control flow
 - Include actual code in parentheses when referencing conditions/statements
@@ -343,10 +343,12 @@ def format_node_context_for_prompt(
         if edge["to_node"] == node["id"]:
             # pred_node = next((n for n in cfg_nodes if n["id"] == edge["from_node"]), None)
             pred_node = node_lookup.get(edge["from_node"])
+            bn = pred_node.get('block_number')
             if pred_node:
                 predecessors.append({
                     # "block_id": f"B{pred_node.get('block_number', pred_node['id'])}",
-                    "block_id": f"B{pred_node.get('block_number')}",
+                    # "block_id": f"B{pred_node.get('block_number')}",
+                    "block_id": pred_node.get('type', '').upper() if not bn else f"B{bn}",
                     "edge_label": edge.get("label", ""),
                     "code": pred_node.get("label", "")
                 })
@@ -357,17 +359,19 @@ def format_node_context_for_prompt(
         if edge["from_node"] == node["id"]:
             # succ_node = next((n for n in cfg_nodes if n["id"] == edge["to_node"]), None)
             succ_node = node_lookup.get(edge["to_node"])
+            bn = succ_node.get('block_number')
             if succ_node:
                 successors.append({
                     # "block_id": f"B{succ_node.get('block_number', succ_node['id'])}",
-                    "block_id": f"B{succ_node.get('block_number')}",
+                    # "block_id": f"B{succ_node.get('block_number')}",
+                    "block_id": succ_node.get('type', '').upper() if not bn else f"B{bn}",
                     "edge_label": edge.get("label", ""),
                     "code": succ_node.get("label", "")
                 })
     
     # Find paths through this node
     paths_through = []
-    block_tag = f"B{node.get('block_number')}"
+    block_tag = f"B{node.get('block_number')}:"
 
     for path in all_paths:
         for step in path:

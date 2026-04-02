@@ -239,11 +239,11 @@ class DataFlowAnalyzer:
         reaching = self.reaching_definitions()
         chains = {}
         
-        # Add parameter definitions
-        for param in self.parameters:
-            key = (-1, param)
-            if key not in chains:
-                chains[key] = set()
+        # # Add parameter definitions
+        # for param in self.parameters:
+        #     key = (-1, param)
+        #     if key not in chains:
+        #         chains[key] = set()
 
         for block_id, block in self.cfg.blocks.items():
             # Find uses in this block
@@ -286,9 +286,9 @@ class DataFlowAnalyzer:
                             if var in self.variables:
                                 all_defs.add((block_id, var))
 
-        # Treat function parameters as already defined
-        for param in self.parameters:
-            all_defs.add((-1, param))
+        # # Treat function parameters as already defined
+        # for param in self.parameters:
+        #     all_defs.add((-1, param))
         
         # # Check which definitions have no uses
         # for def_block, var in all_defs:

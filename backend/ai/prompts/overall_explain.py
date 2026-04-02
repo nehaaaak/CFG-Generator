@@ -15,7 +15,8 @@ from typing import Dict, List
 def build_prompt(
     function_names: List[str],
     metrics: Dict,
-    unreachable_code: List[Dict] = None
+    unreachable_code: List[Dict] = None,
+    path_count: int = 0
 ) -> str:
     """
     Build optimized prompt for CFG structure explanation.
@@ -31,7 +32,7 @@ def build_prompt(
     cc = metrics.get('cyclomatic_complexity', 0)
     nodes = metrics.get('nodes', 0)
     edges = metrics.get('edges', 0)
-    path_count = metrics.get('path_count', 0)
+    # path_count = metrics.get('path_count', 0)
     decisions = metrics.get('decision_points', 0)
     loops = metrics.get('loops', 0)
     nesting = metrics.get('max_nesting_depth', 0)
@@ -60,7 +61,7 @@ CFG STRUCTURE:
         prompt += f"- Unreachable Blocks: {len(unreachable_code)}\n"
     
     prompt += """
-OUTPUT FORMAT: Provide exactly 2-3 sentences explaining:
+OUTPUT FORMAT: Provide exactly 2-3 concise lines explaining:
 1. The overall control flow structure
 2. Branching or loop behavior
 3. How execution paths progress through the graph

@@ -8,7 +8,8 @@ def generate_overall_explanation(
     metrics: Dict,
     # smells: List[Dict],
     # hotspots: List[Dict],
-    unreachable_code: List[Dict] = None
+    unreachable_code: List[Dict] = None,
+    path_count: int = 0
 ) -> Dict:
     """
     Generate overall CFG explanation.
@@ -27,13 +28,14 @@ def generate_overall_explanation(
         metrics,
         # smells,
         # hotspots,
-        unreachable_code
+        unreachable_code,
+        path_count
     )
     
     # Generate completion (max 180 tokens for free tier)
     result = generate_completion(
         prompt=prompt,
-        max_tokens=300,
+        max_tokens=350,
         temperature=0.4
     )
     
@@ -64,14 +66,23 @@ def generate_from_static_analysis(
         # smells = first_func.get("code_smells", [])
         # hotspots = first_func.get("hotspots", [])
         
-        function_names = list(cfg_data.get("functions", {}).keys())
+        first_func_data = cfg_data.get("functions", [{}])[0] if isinstance(cfg_data.get("functions"), list) else {}
+        path_count = len(first_func_data.get("paths", []))
+
+        # function_names = list(cfg_data.get("functions", {}).keys())
+        functions = cfg_data.get("functions", [])
+        if isinstance(functions, list):
+            function_names = [f["name"] for f in functions if "name" in f]
+        else:
+            function_names = list(functions.keys())
         
         result = generate_overall_explanation(
             function_names,
             metrics,
             # smells,
             # hotspots,
-            unreachable_code
+            unreachable_code,
+            path_count
         )
         
         return result["explanation"] if not result["error"] else None

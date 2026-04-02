@@ -30,7 +30,6 @@ class BasicBlockCFGBuilder(ast.NodeVisitor):
         self.function_calls: List[Tuple[str, int]] = []  # (function_name, line_no)
     
     def build(self) -> CFG:
-        """Build the CFG from source code"""
         try:
             tree = ast.parse(self.source)
             
@@ -210,14 +209,6 @@ class BasicBlockCFGBuilder(ast.NodeVisitor):
         self._start_new_block()
     
     def visit_If(self, node):
-        """
-        If/elif/else statement
-        
-        Structure:
-        [current] -> [condition] -> [true_branch]
-                                 -> [false_branch/elif/else]
-        Both branches -> [merge_point]
-        """
         # Save entry block
         entry_block = self.current_block
         
@@ -619,7 +610,6 @@ def build_module_cfg(source_code: str) -> CFG:
     return builder.build()
 
 
-# ==================== CONVENIENCE FUNCTION ====================
 
 def analyze_code(source_code: str, mode: str = "function") -> Dict:
     """
