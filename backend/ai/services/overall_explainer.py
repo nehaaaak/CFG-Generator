@@ -22,7 +22,7 @@ def generate_overall_explanation(
 
     result = generate_completion(
         prompt=prompt,
-        max_tokens=350,
+        max_tokens=400,
         temperature=0.4
     )
     

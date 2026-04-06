@@ -45,6 +45,14 @@ class DataFlowAnalyzer:
                 # Simple regex to find variable names
                 vars_in_stmt = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', stmt.text)
                 self.variables.update(vars_in_stmt)
+
+        # ✅ ADD THIS BLOCK HERE
+        for block in self.cfg.blocks.values():
+            for stmt in block.statements:
+                if stmt.text.startswith("for "):
+                    match = re.match(r'for\s+(\w+)\s+in', stmt.text)
+                    if match:
+                        self.variables.add(match.group(1))  # ensures 'n' is included
         
         # Remove Python keywords
         keywords = {

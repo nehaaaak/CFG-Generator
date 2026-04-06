@@ -62,20 +62,23 @@ CFG STRUCTURE:
     
     prompt += """
 IMPORTANT:
-- Write 2–3 concise sentences (max ~100–120 words)
-- Do NOT use bullet points or numbering
-- Keep it as a single paragraph
-- Complete the explanation fully
-- End with a complete concluding sentence
-
-FOCUS ON:
-- How execution moves through the graph
-- Where branches or loops influence the flow
-- Key characteristics of the CFG structure
+- Write 2–3 concise sentences (max ~80–100 words)
+- Use a single paragraph (no bullets or numbering)
+- Be clear and complete
 
 Describe how execution flows through the CFG clearly and concisely.
 
-Start naturally ("This CFG...", "The control flow...", "Execution here...").
-No labels or prefixes. Write the explanation now:"""
+Start naturally ("This CFG...", "The control flow...").
+No labels or prefixes.
+Ensure the explanation is complete and does not end abruptly."""
     
     return prompt
+
+
+
+# FOCUS ON:
+# - How execution moves through the graph
+# - Where branches or loops influence the flow
+# - Key characteristics of the CFG structure
+
+# Write the explanation now:
