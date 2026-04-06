@@ -61,6 +61,9 @@ def generate_from_static_analysis(
             unreachable_code,
             path_count=path_count
         )
+
+        print("DEBUG cfg_data keys:", cfg_data.keys())
+        print("DEBUG functions:", cfg_data.get("functions", []))
         
         return result["explanation"] if not result["error"] else None
     

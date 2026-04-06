@@ -84,6 +84,9 @@ class DataFlowAnalyzer:
         if entry_block_id is None and self.cfg.blocks:
             entry_block_id = next(iter(self.cfg.blocks))
 
+        print("DEBUG entry_block_id:", entry_block_id)
+        print("DEBUG predecessors per block:", {bid: block.predecessors for bid, block in self.cfg.blocks.items()})
+
         for block_id, block in self.cfg.blocks.items():
             gen[block_id] = set()
             kill[block_id] = set()

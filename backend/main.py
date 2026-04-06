@@ -306,12 +306,18 @@ async def generate_cfg(
         # Generate CFG using new system
         result = generate_cfg_for_code(code)
         
+        # if not result["success"]:
+        #     return CFGResponse(
+        #         success=False,
+        #         functions=[],
+        #         overall_cc=0,
+        #         error=result["errors"][0] if result["errors"] else "Unknown error"
+        #     )
+
         if not result["success"]:
-            return CFGResponse(
-                success=False,
-                functions=[],
-                overall_cc=0,
-                error=result["errors"][0] if result["errors"] else "Unknown error"
+            raise HTTPException(
+                status_code=400,
+                detail=result["errors"][0] if result["errors"] else "Unknown error"
             )
         
         # Convert to response format
