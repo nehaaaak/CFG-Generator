@@ -6,33 +6,20 @@ from ..prompts.overall_explain import build_prompt
 def generate_overall_explanation(
     function_names: List[str],
     metrics: Dict,
-    # smells: List[Dict],
-    # hotspots: List[Dict],
     unreachable_code: List[Dict] = None,
     path_count: int = 0
 ) -> Dict:
-    """
-    Generate overall CFG explanation.
-    
-    Returns:
-        {
-            "explanation": str,
-            "tokens_used": int,
-            "error": str | None
-        }
-    """
     
     # Build optimized prompt
     prompt = build_prompt(
         function_names,
         metrics,
-        # smells,
-        # hotspots,
         unreachable_code,
-        path_count
+        path_count=path_count
     )
     
-    # Generate completion (max 180 tokens for free tier)
+    print("DEBUG prompt:", prompt)
+
     result = generate_completion(
         prompt=prompt,
         max_tokens=350,
@@ -51,22 +38,12 @@ def generate_from_static_analysis(
     static_analysis: Dict,
     unreachable_code: List[Dict] = None
 ) -> Optional[str]:
-    """
-    Wrapper for main.py integration.
-    Extracts data from static analysis and calls service.
-    """
     try:
         if not static_analysis:
             return None
         
-        # Extract from first function
-        first_func = list(static_analysis.values())[0] if static_analysis else {}
-        
-        metrics = first_func.get("metrics", {})
-        # smells = first_func.get("code_smells", [])
-        # hotspots = first_func.get("hotspots", [])
-        
         first_func_data = cfg_data.get("functions", [{}])[0] if isinstance(cfg_data.get("functions"), list) else {}
+        metrics = first_func_data.get("metrics", {})
         path_count = len(first_func_data.get("paths", []))
 
         # function_names = list(cfg_data.get("functions", {}).keys())
@@ -82,7 +59,7 @@ def generate_from_static_analysis(
             # smells,
             # hotspots,
             unreachable_code,
-            path_count
+            path_count=path_count
         )
         
         return result["explanation"] if not result["error"] else None

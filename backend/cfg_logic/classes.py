@@ -299,7 +299,6 @@ class CFG:
     
     def calculate_cognitive_complexity(self) -> int:
         """
-        Cognitive Complexity (Sonar)
         More human-oriented than cyclomatic complexity
         Counts nesting and structural complexity
         """
@@ -316,8 +315,7 @@ class CFG:
     
     def calculate_nesting_depth(self) -> int:
         """Calculate maximum nesting depth"""
-        # Would need AST for accurate calculation
-        # Approximation: count nested decision/loop blocks
+        # Approximation: count nested decision/loop blocks, would need ast for accurate calculation
         return self._calculate_depth_recursive(self.start_block, 0, set())
     
     def _calculate_depth_recursive(self, block_id: int, depth: int, visited: Set[int]) -> int:

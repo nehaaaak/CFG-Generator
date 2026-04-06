@@ -20,16 +20,6 @@ def generate_completion(
     max_tokens: int = 300,
     temperature: float = 0.3
 ) -> dict:
-    """
-    Generate completion from Gemini.
-    
-    Returns:
-        {
-            "text": str,
-            "tokens_used": int,
-            "error": str | None
-        }
-    """
     if not client:
         return {
             "text": "AI features unavailable - API key not configured",
@@ -45,7 +35,6 @@ def generate_completion(
                 max_output_tokens=max_tokens,
                 temperature=temperature,
             ),
-            # request_options={"timeout": 20}
         )
 
         # Truncation guard

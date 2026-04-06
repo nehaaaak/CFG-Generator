@@ -44,6 +44,8 @@ class DataFlowAnalyzer:
             'del', 'global', 'nonlocal', 'async', 'await', 'match', 'case'
         }
         self.variables -= keywords
+        self.variables.discard("self")
+        self.variables.discard("cls")
 
     def _is_assignment(self, text: str) -> bool:
         """Check if a statement is an assignment, not a comparison"""
@@ -260,6 +262,8 @@ class DataFlowAnalyzer:
                                     chains[key] = set()
                                 chains[key].add((block_id, stmt_idx))
         
+        print("DEBUG reaching:", reaching)
+        print("DEBUG chains after build:", chains)
         return chains
     
     def find_unused_variables(self) -> List[Tuple[int, str]]:
@@ -721,10 +725,10 @@ class HalsteadMetrics:
     
     def calculate(self) -> Dict:
         """Calculate all Halstead metrics"""
-        n1 = len(self.operators)  # Unique operators
-        n2 = len(self.operands)   # Unique operands
-        N1 = self.operator_count  # Total operators
-        N2 = self.operand_count   # Total operands
+        n1 = len(self.operators)  
+        n2 = len(self.operands)   
+        N1 = self.operator_count  
+        N2 = self.operand_count   
         
         if n1 == 0 or n2 == 0:
             return {
@@ -882,14 +886,19 @@ def run_complete_static_analysis(cfg: CFG, source_code: str) -> Dict:
         print(f"Halstead metrics error: {e}")
         halstead_metrics = {}
     
+    live_variables_count = len(set().union(*live_vars.values())) if live_vars else 0
+    def_use_count = sum(len(v) for v in def_use.values())
+
     # Format output
     result = {
         "metrics": metrics,
         "halstead":halstead_metrics,
         "data_flow": {
             "reaching_definitions_count": len(reaching),
-            "live_variables_count": sum(len(vars) for vars in live_vars.values()),
-            "def_use_chains_count": len(def_use),
+            # "live_variables_count": sum(len(vars) for vars in live_vars.values()),
+            "live_variables_count": live_variables_count,
+            # "def_use_chains_count": len(def_use),
+            "def_use_chains_count": def_use_count,
             "unused_variables": [{"block": block_id, "variable": var} for block_id, var in unused]
         },
         "code_smells": smells,

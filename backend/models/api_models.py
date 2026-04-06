@@ -6,26 +6,22 @@ from datetime import datetime
 # ==================== AUTH MODELS ====================
 
 class UserRegister(BaseModel):
-    """User registration request"""
     full_name: str = Field(..., min_length=2, max_length=60)
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=100)
 
 
 class UserLogin(BaseModel):
-    """User login request"""
     email: EmailStr
     password: str
 
 
 class Token(BaseModel):
-    """JWT token response"""
     access_token: str
     token_type: str = "bearer"
 
 
 class UserResponse(BaseModel):
-    """User data response"""
     id: int
     full_name: str
     email: str

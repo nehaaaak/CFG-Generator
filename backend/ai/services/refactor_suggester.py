@@ -19,22 +19,6 @@ def suggest_refactoring(
     function_name: Optional[str] = None,
     db: Session = None
 ) -> Dict:
-    """
-    Generate refactoring suggestions for a function or entire code.
-    
-    Args:
-        session_id: CFG session ID
-        function_name: Specific function (None = entire code/first function)
-        db: Database session for caching
-    
-    Returns:
-        {
-            "suggestions": str,  # Formatted suggestions
-            "tokens_used": int,
-            "cached": bool,
-            "error": str | None
-        }
-    """
     # Get session data
     session = db.query(CFGSession).filter(
         CFGSession.session_id == session_id

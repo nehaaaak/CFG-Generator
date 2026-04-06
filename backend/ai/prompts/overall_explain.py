@@ -61,22 +61,19 @@ CFG STRUCTURE:
         prompt += f"- Unreachable Blocks: {len(unreachable_code)}\n"
     
     prompt += """
-OUTPUT FORMAT: Provide exactly 2-3 concise lines explaining:
-1. The overall control flow structure
-2. Branching or loop behavior
-3. How execution paths progress through the graph
+IMPORTANT:
+- Write 2–3 concise sentences (max ~100–120 words)
+- Do NOT use bullet points or numbering
+- Keep it as a single paragraph
+- Complete the explanation fully
+- End with a complete concluding sentence
 
 FOCUS ON:
 - How execution moves through the graph
 - Where branches or loops influence the flow
 - Key characteristics of the CFG structure
 
-AVOID:
-- Code quality judgments
-- Refactoring suggestions
-- Style recommendations
-
-Describe how execution progresses through the CFG as if explaining the graph to someone visually.
+Describe how execution flows through the CFG clearly and concisely.
 
 Start naturally ("This CFG...", "The control flow...", "Execution here...").
 No labels or prefixes. Write the explanation now:"""

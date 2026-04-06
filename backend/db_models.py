@@ -46,14 +46,14 @@ class CFGSession(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     # CFG Data
-    code = Column(Text, nullable=False)  # Original Python code
-    cfg_data = Column(JSON, nullable=False)  # Complete CFG JSON response
+    code = Column(Text, nullable=False)  
+    cfg_data = Column(JSON, nullable=False) 
 
     # Static Analysis Data
-    static_analysis = Column(JSON, nullable=True)  # Reaching defs, live vars, smells
+    static_analysis = Column(JSON, nullable=True)  
     
     # AI Generated Content
-    overall_explanation = Column(Text, nullable=True)  # Public AI explanation
+    overall_explanation = Column(Text, nullable=True)  
     
     # Metadata
     name = Column(String(255), nullable=True)  # Optional: user-given name

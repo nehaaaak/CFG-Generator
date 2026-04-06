@@ -41,16 +41,6 @@ def get_password_hash(password: str) -> str:
 # ==================== JWT TOKEN CREATION ====================
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT access token
-    
-    Args:
-        data: Dictionary with user data (typically {"sub": user_id})
-        expires_delta: Optional custom expiration time
-    
-    Returns:
-        Encoded JWT token string
-    """
     to_encode = data.copy()
     
     if expires_delta:
@@ -68,16 +58,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT refresh token
-    
-    Args:
-        data: Dictionary with user data (typically {"sub": user_id})
-        expires_delta: Optional custom expiration time
-    
-    Returns:
-        Encoded JWT token string
-    """
     to_encode = data.copy()
     
     if expires_delta:
@@ -97,16 +77,6 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
 # ==================== TOKEN VERIFICATION ====================
 
 def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
-    """
-    Verify a JWT token and return payload
-    
-    Args:
-        token: JWT token string
-        token_type: "access" or "refresh"
-    
-    Returns:
-        Token payload if valid, None if invalid
-    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         

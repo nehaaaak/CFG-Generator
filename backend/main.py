@@ -127,10 +127,6 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
             status_code=400,
             detail={"message": "Password requirements not met", "errors": errors}
         )
-
-    # is_valid, error = validate_password(user_data.password)
-    # if not is_valid:
-    #     raise HTTPException(status_code=400, detail=error)
     
     # Check if user already exists
     existing_user = db.query(User).filter(func.lower(User.email) == user_data.email.lower()).first()
