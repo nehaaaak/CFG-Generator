@@ -7,24 +7,35 @@ import math
 class DataFlowAnalyzer:
     """Performs data flow analysis on a CFG"""
     
-    def __init__(self, cfg: CFG):
+    def __init__(self, cfg: CFG, source_code: str = ""):
         self.cfg = cfg
+        self.source_code = source_code
         self.variables: Set[str] = set()
         self.parameters = self._extract_parameters()
         self._extract_variables()
     
-    def _extract_parameters(self):
+    # def _extract_parameters(self):
+    #     params = set()
+    #     for block in self.cfg.blocks.values():
+    #         for stmt in block.statements:
+    #             if stmt.text.startswith("def "):
+    #                 match = re.search(r'def\s+\w+\((.*?)\)', stmt.text)
+    #                 if match:
+    #                     param_list = match.group(1).split(',')
+    #                     for p in param_list:
+    #                         p = p.strip()
+    #                         if p:
+    #                             params.add(p)
+    #     return params
+    def _extract_parameters(self) -> set:
         params = set()
-        for block in self.cfg.blocks.values():
-            for stmt in block.statements:
-                if stmt.text.startswith("def "):
-                    match = re.search(r'def\s+\w+\((.*?)\)', stmt.text)
-                    if match:
-                        param_list = match.group(1).split(',')
-                        for p in param_list:
-                            p = p.strip()
-                            if p:
-                                params.add(p)
+        if self.source_code:
+            match = re.search(r'def\s+\w+\s*\((.*?)\)', self.source_code)
+            if match:
+                for p in match.group(1).split(','):
+                    p = p.strip().split(':')[0].split('=')[0].strip()
+                    if p and p != 'self':
+                        params.add(p)
         return params
 
     def _extract_variables(self):
@@ -115,6 +126,8 @@ class DataFlowAnalyzer:
                                     if other_block != block_id:
                                         kill[block_id].add((other_block, var))
         
+        print("DEBUG parameters:", self.parameters)
+        print("DEBUG gen[1]:", gen.get(1))
         # Iterative data flow analysis
         reach_in = {bid: set() for bid in self.cfg.blocks}
         reach_out = {bid: set() for bid in self.cfg.blocks}
@@ -265,8 +278,8 @@ class DataFlowAnalyzer:
                                     chains[key] = set()
                                 chains[key].add((block_id, stmt_idx))
         
-        print("DEBUG reaching:", reaching)
-        print("DEBUG chains after build:", chains)
+        # print("DEBUG reaching:", reaching)
+        # print("DEBUG chains after build:", chains)
         return chains
     
     def find_unused_variables(self) -> List[Tuple[int, str]]:
@@ -336,7 +349,7 @@ class CodeSmellDetector:
         smells.extend(self.detect_boolean_trap())
         
         # Add unused variables from data flow analysis
-        analyzer = DataFlowAnalyzer(self.cfg)
+        analyzer = DataFlowAnalyzer(self.cfg, self.source_code)
         unused = analyzer.find_unused_variables()
         for block_id, var in unused:
             smells.append({
@@ -853,7 +866,7 @@ def run_complete_static_analysis(cfg: CFG, source_code: str) -> Dict:
         Complete analysis including data flow, smells, hotspots, and suggestions
     """
     # Data flow analysis
-    analyzer = DataFlowAnalyzer(cfg)
+    analyzer = DataFlowAnalyzer(cfg, source_code)
     
     try:
         reaching = analyzer.reaching_definitions()

@@ -42,9 +42,10 @@ def generate_from_static_analysis(
         if not static_analysis:
             return None
         
-        first_func_data = cfg_data.get("functions", [{}])[0] if isinstance(cfg_data.get("functions"), list) else {}
-        metrics = first_func_data.get("metrics", {})
-        path_count = len(first_func_data.get("paths", []))
+        # first_func_data = cfg_data.get("functions", [{}])[0] if isinstance(cfg_data.get("functions"), list) else {}
+        # metrics = first_func_data.get("metrics", {})
+        # path_count = len(first_func_data.get("paths", []))
+
 
         # function_names = list(cfg_data.get("functions", {}).keys())
         functions = cfg_data.get("functions", [])
@@ -52,7 +53,17 @@ def generate_from_static_analysis(
             function_names = [f["name"] for f in functions if "name" in f]
         else:
             function_names = list(functions.keys())
-        
+
+
+        functions_data = cfg_data.get("functions", {})
+        if isinstance(functions_data, dict):
+            first_func_data = list(functions_data.values())[0] if functions_data else {}
+        else:
+            first_func_data = functions_data[0] if functions_data else {}
+
+        metrics = first_func_data.get("metrics", {})
+        path_count = len(first_func_data.get("paths", []))
+                
         result = generate_overall_explanation(
             function_names,
             metrics,
