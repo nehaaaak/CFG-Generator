@@ -37,6 +37,8 @@ def generate_completion(
             ),
         )
 
+        print("DEBUG raw response:", response)
+
         # Truncation guard
         candidate = response.candidates[0]
         if candidate.finish_reason.name == "MAX_TOKENS":
@@ -56,7 +58,11 @@ def generate_completion(
         if hasattr(response, "text") and response.text:
             text = response.text.strip()
         elif response.candidates:
-            text = response.candidates[0].content.parts[0].text.strip()
+            # text = response.candidates[0].content.parts[0].text.strip()
+            parts = response.candidates[0].content.parts
+            text = "".join(
+                part.text for part in parts if hasattr(part, "text") and part.text
+            ).strip()
 
         if not text or len(text) < 10:
             return {

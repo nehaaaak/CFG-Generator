@@ -42,9 +42,7 @@ def build_prompt(
     funcs = ", ".join(function_names) if function_names else "main code"
     
     # Build structured prompt
-    prompt = f"""ROLE: You are a Control Flow Graph (CFG) structure analyst.
-
-TASK: Explain the control flow structure of this Python code's CFG.
+    prompt = f"""Explain the control flow structure of this Python code's CFG.
 
 CFG STRUCTURE:
 - Function(s): {funcs}
@@ -64,17 +62,24 @@ CFG STRUCTURE:
 IMPORTANT:
 - Write 2–3 concise sentences (max ~80–100 words)
 - Use a single paragraph (no bullets or numbering)
-- Be clear and complete
+- Keep the explanation short, clear, and complete.
 
 Describe how execution flows through the CFG clearly and concisely.
-
-Start naturally ("This CFG...", "The control flow...").
-No labels or prefixes.
-Ensure the explanation is complete and does not end abruptly."""
+Start naturally ("This CFG...", "The control flow...")."""
     
     return prompt
 
 
+
+
+
+# ROLE: You are a Control Flow Graph (CFG) structure analyst.
+# TASK: Explain the control flow structure of this Python code's CFG.
+
+# - Be clear and complete
+
+# No labels or prefixes.
+# Ensure the explanation is complete and does not end abruptly.
 
 # FOCUS ON:
 # - How execution moves through the graph
