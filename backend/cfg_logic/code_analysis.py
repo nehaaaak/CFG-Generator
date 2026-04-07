@@ -63,6 +63,7 @@ class DataFlowAnalyzer:
             'del', 'global', 'nonlocal', 'async', 'await', 'match', 'case'
         }
         self.variables -= keywords
+        self.variables.update(self.parameters)
         # self.variables.discard("self")
         # self.variables.discard("cls")
 
@@ -119,7 +120,7 @@ class DataFlowAnalyzer:
                 # Find assignments (simple heuristic)
                 if self._is_assignment(stmt.text):
                     # Extract variable being assigned to
-                    parts = stmt.text.split('=')
+                    parts = stmt.text.split('=', 1)
                     if len(parts) >= 2:
                         lhs = parts[0].strip()
                         # Handle multiple assignments, tuples, etc.
@@ -133,6 +134,15 @@ class DataFlowAnalyzer:
                                 for other_block in self.cfg.blocks:
                                     if other_block != block_id:
                                         kill[block_id].add((other_block, var))
+
+                loop_match = re.match(r'for\s+(\w+)\s+in', stmt.text)
+                if loop_match:
+                    var = loop_match.group(1)
+                    if var in self.variables:
+                        gen[block_id].add((block_id, var))
+                        for other_block in self.cfg.blocks:
+                            if other_block != block_id:
+                                kill[block_id].add((other_block, var))
         
         print("DEBUG parameters:", self.parameters)
         print("DEBUG gen[1]:", gen.get(1))
@@ -202,7 +212,7 @@ class DataFlowAnalyzer:
                         #     if v in self.variables and v not in defined_in_block:
                         #         use[block_id].add(v)
                         for v in rhs_vars:
-                            if v not in self.variables or v in self.parameters:
+                            if v not in self.variables:
                                 continue
                             if v not in defined_in_block:
                                 use[block_id].add(v)
@@ -220,10 +230,16 @@ class DataFlowAnalyzer:
                     #     if v in self.variables and v not in defined_in_block:
                     #         use[block_id].add(v)
                     for v in vars_in_stmt:
-                        if v not in self.variables or v in self.parameters:
+                        if v not in self.variables:
                             continue
                         if v not in defined_in_block:
                             use[block_id].add(v)
+
+                    loop_match = re.match(r'for\s+\w+\s+in\s+(\w+)', stmt.text)
+                    if loop_match:
+                        iterable = loop_match.group(1)
+                        if iterable in self.variables and iterable not in defined_in_block:
+                            use[block_id].add(iterable)
         
         # Backward data flow analysis
         live_in = {bid: set() for bid in self.cfg.blocks}

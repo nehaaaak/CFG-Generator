@@ -18,7 +18,8 @@ else:
 def generate_completion(
     prompt: str,
     max_tokens: int = 300,
-    temperature: float = 0.3
+    temperature: float = 0.3,
+    thinking_budget: int = 0
 ) -> dict:
     if not client:
         return {
@@ -34,6 +35,9 @@ def generate_completion(
             config=types.GenerateContentConfig(
                 max_output_tokens=max_tokens,
                 temperature=temperature,
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=thinking_budget
+                )
             ),
         )
 

@@ -42,7 +42,9 @@ def build_prompt(
     funcs = ", ".join(function_names) if function_names else "main code"
     
     # Build structured prompt
-    prompt = f"""Explain the control flow structure of this Python code's CFG.
+    prompt = f"""ROLE: You are a Control Flow Graph (CFG) structure analyst.
+    
+TASK: Explain the control flow structure of this Python code's CFG.
 
 CFG STRUCTURE:
 - Function(s): {funcs}
