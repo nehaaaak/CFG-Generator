@@ -103,9 +103,9 @@ def suggest_refactoring(
     
     result = generate_completion(
         prompt=prompt,
-        max_tokens=600,  # More tokens for detailed suggestions
-        temperature=0.3,   # For precision
-        # timeout=15
+        max_tokens=470,  
+        temperature=0.3,
+        thinking_budget=60      
     )
     
     if result["error"]:
@@ -118,6 +118,8 @@ def suggest_refactoring(
         }
     try:
         parsed = parse_refactor_suggestions(result["text"])
+        if not parsed:
+            raise ValueError("Empty parsed suggestions")
     except Exception:
         parsed = []
 
@@ -185,36 +187,63 @@ def _extract_function_code(full_code: str, function_name: str) -> Optional[str]:
 def parse_refactor_suggestions(text: str):
     suggestions = []
 
-    # Split by PRIORITY blocks (robust split)
-    blocks = re.split(r'PRIORITY\s*\d+[^\n]*\n?', text, flags=re.IGNORECASE)
+    # Match numbered suggestions like:
+    # 1. Extract Method
+    #    explanation...
+    pattern = r'\d+\.\s*(.+?)(?=\n\d+\.|\Z)'
 
-    # First split part is empty → skip
-    for i, block in enumerate(blocks[1:], start=1):
-        suggestion = {
-            "priority": i,
-            "refactoring": "",
-            "problem": "",
-            "solution": "",
-            "benefit": "",
-            "lines": ""
-        }
+    matches = re.findall(pattern, text, re.DOTALL)
 
-        fields = ["Refactoring", "Problem", "Solution", "Benefit", "Lines"]
-        for j, field in enumerate(fields):
-            # Match from this field to the next field or end of block
-            next_fields = '|'.join(fields[j+1:]) if j+1 < len(fields) else None
-            if next_fields:
-                pattern = rf'•?\s*{field}:\s*(.*?)(?=•?\s*(?:{next_fields}):|\Z)'
-            else:
-                pattern = rf'•?\s*{field}:\s*(.*?)(?=\Z)'
-            
-            match = re.search(pattern, block, re.IGNORECASE | re.DOTALL)
-            if match:
-                suggestion[field.lower()] = match.group(1).strip()
+    for i, match in enumerate(matches, start=1):
+        lines = match.strip().split("\n")
 
-        suggestions.append(suggestion)
+        title = lines[0].strip()
+        description = " ".join(line.strip() for line in lines[1:]).strip()
+
+        suggestions.append({
+            "id": i,
+            "title": title,
+            "description": description
+        })
 
     return suggestions
+
+
+    
+
+# def parse_refactor_suggestions(text: str):
+#     suggestions = []
+
+#     # Split by PRIORITY blocks (robust split)
+#     blocks = re.split(r'PRIORITY\s*\d+[^\n]*\n?', text, flags=re.IGNORECASE)
+
+#     # First split part is empty → skip
+#     for i, block in enumerate(blocks[1:], start=1):
+#         suggestion = {
+#             "priority": i,
+#             "refactoring": "",
+#             "problem": "",
+#             "solution": "",
+#             "benefit": "",
+#             "lines": ""
+#         }
+
+#         fields = ["Refactoring", "Problem", "Solution", "Benefit", "Lines"]
+#         for j, field in enumerate(fields):
+#             # Match from this field to the next field or end of block
+#             next_fields = '|'.join(fields[j+1:]) if j+1 < len(fields) else None
+#             if next_fields:
+#                 pattern = rf'•?\s*{field}:\s*(.*?)(?=•?\s*(?:{next_fields}):|\Z)'
+#             else:
+#                 pattern = rf'•?\s*{field}:\s*(.*?)(?=\Z)'
+            
+#             match = re.search(pattern, block, re.IGNORECASE | re.DOTALL)
+#             if match:
+#                 suggestion[field.lower()] = match.group(1).strip()
+
+#         suggestions.append(suggestion)
+
+#     return suggestions
 
     #     # Extract fields using regex (robust)
     #     refactoring = re.search(r'Refactoring:\s*(.+)', block, re.IGNORECASE)

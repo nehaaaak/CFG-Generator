@@ -51,11 +51,21 @@ def explain_path(
     cfg_data = session.cfg_data
     
     # Find the function
+    # function_cfg = None
+    # for func in cfg_data.get("functions", []):
+    #     if func["name"] == function_name:
+    #         function_cfg = func
+    #         break
+
     function_cfg = None
-    for func in cfg_data.get("functions", []):
-        if func["name"] == function_name:
-            function_cfg = func
-            break
+    functions = cfg_data.get("functions", {})
+    if isinstance(functions, dict):
+        function_cfg = functions.get(function_name)
+    else:
+        for func in functions:
+            if func["name"] == function_name:
+                function_cfg = func
+                break
     
     if not function_cfg:
         return {
@@ -75,8 +85,8 @@ def explain_path(
         }
     
     # Normalize node IDs for consistent caching
-    # path_node_ids = [str(i).replace("B", "").strip() for i in path_node_ids]
-    path_node_ids = [str(i).strip() for i in path_node_ids]
+    path_node_ids = [str(i).replace("B", "").strip() for i in path_node_ids]
+    # path_node_ids = [str(i).strip() for i in path_node_ids]
     
     # Extract path context
     path_data = extract_path_from_selection(
@@ -98,7 +108,7 @@ def explain_path(
     cache_input = {
         "session_id": session_id,
         "function": function_name,
-        "path_nodes": path_node_ids
+        "path_nodes": tuple(path_node_ids)
     }
 
     input_hash = create_input_hash(cache_input)
@@ -124,16 +134,22 @@ def explain_path(
         edge_conditions=path_data["edge_conditions"],
         function_name=function_name
     )
+
+    print("DEBUG path prompt:", prompt)
     
     result = generate_completion(
         prompt=prompt,
-        max_tokens=300,
-        temperature=0.4
+        max_tokens=500,
+        temperature=0.4,
+        thinking_budget=60
     )
+    text = result.get("text", "").strip()
+    if not text:
+        text = "This path represents a sequence of execution steps through the control flow graph."
     
     if result["error"]:
         return {
-            "explanation": result["text"],
+            "explanation": text,
             "tokens_used": result["tokens_used"],
             "cached": False,
             "error": result["error"]
@@ -146,7 +162,7 @@ def explain_path(
             user_id=session.user_id,
             feature_type="path_explain",
             input_hash=input_hash,
-            response_data={"explanation": result["text"]},
+            response_data={"explanation": text},
             tokens_used=result["tokens_used"],
             model_used="gemini-2.5-flash"
         )
@@ -156,7 +172,7 @@ def explain_path(
         print(f"Cache storage error: {e}")
     
     return {
-        "explanation": result["text"],
+        "explanation": text,
         "tokens_used": result["tokens_used"],
         "cached": False,
         "error": None

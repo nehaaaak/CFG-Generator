@@ -104,8 +104,8 @@ class DataFlowAnalyzer:
         if entry_block_id is None and self.cfg.blocks:
             entry_block_id = next(iter(self.cfg.blocks))
 
-        print("DEBUG entry_block_id:", entry_block_id)
-        print("DEBUG predecessors per block:", {bid: block.predecessors for bid, block in self.cfg.blocks.items()})
+        # print("DEBUG entry_block_id:", entry_block_id)
+        # print("DEBUG predecessors per block:", {bid: block.predecessors for bid, block in self.cfg.blocks.items()})
 
         for block_id, block in self.cfg.blocks.items():
             gen[block_id] = set()
@@ -144,8 +144,8 @@ class DataFlowAnalyzer:
                             if other_block != block_id:
                                 kill[block_id].add((other_block, var))
         
-        print("DEBUG parameters:", self.parameters)
-        print("DEBUG gen[1]:", gen.get(1))
+        # print("DEBUG parameters:", self.parameters)
+        # print("DEBUG gen[1]:", gen.get(1))
         # Iterative data flow analysis
         reach_in = {bid: set() for bid in self.cfg.blocks}
         reach_out = {bid: set() for bid in self.cfg.blocks}
@@ -306,48 +306,84 @@ class DataFlowAnalyzer:
         # print("DEBUG chains after build:", chains)
         return chains
     
+
     def find_unused_variables(self) -> List[Tuple[int, str]]:
-        """
-        Find variables that are defined but never used.
-        
-        Returns:
-            List of (block_id, variable_name) tuples
-        """
-        chains = self.def_use_chains()
         unused = []
-        
-        # Find all definitions
-        all_defs = set()
+
+        defined_vars = set()
+        used_vars = set()
+
+        # Collect definitions
         for block_id, block in self.cfg.blocks.items():
             for stmt in block.statements:
-                if '=' in stmt.text and '==' not in stmt.text:
-                    parts = stmt.text.split('=')
-                    if len(parts) >= 2:
+                if self._is_assignment(stmt.text):
+                    parts = stmt.text.split('=', 1)
+                    if len(parts) == 2:
                         lhs = parts[0].strip()
                         var_match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)', lhs)
                         if var_match:
                             var = var_match.group(1)
-                            if var in self.variables:
-                                all_defs.add((block_id, var))
+                            if var in self.variables and var not in self.parameters:
+                                defined_vars.add((block_id, var))
 
-        # # Treat function parameters as already defined
-        # for param in self.parameters:
-        #     all_defs.add((-1, param))
-        
-        # # Check which definitions have no uses
-        # for def_block, var in all_defs:
-        #     if (def_block, var) not in chains or len(chains[(def_block, var)]) == 0:
-        #         unused.append((def_block, var))
+        # Collect ALL usages (global)
+        for block in self.cfg.blocks.values():
+            for stmt in block.statements:
+                vars_in_stmt = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', stmt.text)
+                for v in vars_in_stmt:
+                    if v in self.variables:
+                        used_vars.add(v)
 
-        for def_block, var in all_defs:
-            # NEVER mark parameters as unused
-            if var in self.parameters:
-                continue
+        # Find unused
+        for block_id, var in defined_vars:
+            if var not in used_vars:
+                unused.append((block_id, var))
 
-            if (def_block, var) not in chains or len(chains[(def_block, var)]) == 0:
-                unused.append((def_block, var))
-        
         return unused
+
+    
+    # def find_unused_variables(self) -> List[Tuple[int, str]]:
+    #     """
+    #     Find variables that are defined but never used.
+        
+    #     Returns:
+    #         List of (block_id, variable_name) tuples
+    #     """
+    #     chains = self.def_use_chains()
+    #     unused = []
+        
+    #     # Find all definitions
+    #     all_defs = set()
+    #     for block_id, block in self.cfg.blocks.items():
+    #         for stmt in block.statements:
+    #             if '=' in stmt.text and '==' not in stmt.text:
+    #                 parts = stmt.text.split('=')
+    #                 if len(parts) >= 2:
+    #                     lhs = parts[0].strip()
+    #                     var_match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)', lhs)
+    #                     if var_match:
+    #                         var = var_match.group(1)
+    #                         if var in self.variables:
+    #                             all_defs.add((block_id, var))
+
+    #     # # Treat function parameters as already defined
+    #     # for param in self.parameters:
+    #     #     all_defs.add((-1, param))
+        
+    #     # # Check which definitions have no uses
+    #     # for def_block, var in all_defs:
+    #     #     if (def_block, var) not in chains or len(chains[(def_block, var)]) == 0:
+    #     #         unused.append((def_block, var))
+
+    #     for def_block, var in all_defs:
+    #         # NEVER mark parameters as unused
+    #         if var in self.parameters:
+    #             continue
+
+    #         if (def_block, var) not in chains or len(chains[(def_block, var)]) == 0:
+    #             unused.append((def_block, var))
+        
+    #     return unused
 
 
 class CodeSmellDetector:

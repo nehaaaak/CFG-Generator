@@ -105,7 +105,7 @@ def build_prompt(
     path_type = classify_path(path_blocks, edge_conditions)
     path_metrics = calculate_path_metrics(path_blocks)
 
-    dominant_block = find_dominant_decision(path_blocks)
+    # dominant_block = find_dominant_decision(path_blocks)
 
     # Build path sequence
     path_sequence = " → ".join([b["block_id"] for b in path_blocks])
@@ -162,14 +162,12 @@ TASK: Explain this execution path through the {function_name} function.
 EXECUTION PATH:
 {path_sequence}
 
-PATH TYPE:
+TYPE:
 {path_type}
 
 PATH METRICS:
 Length: {path_metrics['length']} blocks
 Decision Points: {path_metrics['decisions']}
-Loop Headers: {path_metrics['loops']}
-
 """
     
     # if dominant_block:
@@ -178,7 +176,7 @@ Loop Headers: {path_metrics['loops']}
     # Add decision points (most important context)
     if decision_points:
         # prompt += "─────────────────────────────────────────────────────────\n"
-        prompt += "DECISIONS TAKEN (conditions along this path):\n"
+        prompt += "DECISIONS(conditions):\n"
         # prompt += "─────────────────────────────────────────────────────────\n"
         for dp in decision_points:
             prompt += f"  {dp['block']}: ({dp['code']}) evaluated {dp['branch']}\n"
@@ -190,45 +188,27 @@ Loop Headers: {path_metrics['loops']}
     # prompt += "─────────────────────────────────────────────────────────\n"
     for block in path_blocks:
         if block["type"] not in ["start", "end"] and block["code"]:
-            prompt += f"  {block['block_id']} ({block['type']}): {block['code']}\n"
+            prompt += f"  {block['block_id']}: {block['code']}\n"
     prompt += "\n"
     
     # Add outcome
     if outcome_block:
         # prompt += "─────────────────────────────────────────────────────────\n"
-        prompt += "PATH OUTCOME:\n"
+        prompt += "OUTCOME:\n"
         # prompt += "─────────────────────────────────────────────────────────\n"
         prompt += f"  {outcome_block['code']}\n\n"
     
     # Output instructions
     prompt += """
 OUTPUT INSTRUCTIONS:
+Explain in 3–4 concise sentences:
+- Mention what kind of execution path this represents(e.g., early return, loop iteration, normal completion)
+- What input/condition triggers this path. Example: "when the score is 90 or above"
+- How execution proceeds through key decisions. Example: "the first condition (score >= 90) evaluates to true"
+- What the final outcome is(what gets returned or executed). Example: "returns grade 'A' and exits the function"
 
-Provide a 4 concise lines explanation covering:
-
-1. PATH TYPE: Mention what kind of execution path this represents
-(e.g., early return, loop iteration, normal completion)
-
-2. SCENARIO: What input/condition triggers this path
-- Example: "when the score is 90 or above"
-- Reference actual conditions from the path
-
-3. EXECUTION FLOW: How execution proceeds through the path
-- Mention key decision points and branches taken
-- Example: "the first condition (score >= 90) evaluates to true"
-
-4. OUTCOME: What happens at the end of this path
-- What gets returned or executed
-- Example: "returns grade 'A' and exits the function"
-
-STYLE:
-- Reference actual code/conditions in parentheses
-- Explain in terms of execution flow, not just code
-- Be specific about conditions that trigger this path
-- Keep it concise but complete
-
-Start naturally ("This path...", "When execution...", "Along this path...").
-No labels or prefixes. Write the explanation now:"""
+Reference actual code/conditions in parentheses. Explain in terms of execution flow, not just code.
+Start naturally ("This path...", "When execution...", "Along this path...")."""
     
     return prompt
 
@@ -299,3 +279,34 @@ def extract_path_from_selection(
         "path_blocks": path_blocks,
         "edge_conditions": edge_conditions
     }
+
+
+
+
+
+
+# Loop Headers: {path_metrics['loops']}
+# Provide a 4 concise lines explanation covering:
+# 1. PATH TYPE: Mention what kind of execution path this represents
+# (e.g., early return, loop iteration, normal completion)
+
+# 2. SCENARIO: What input/condition triggers this path
+# - Example: "when the score is 90 or above"
+# - Reference actual conditions from the path
+
+# 3. EXECUTION FLOW: How execution proceeds through the path
+# - Mention key decision points and branches taken
+# - Example: "the first condition (score >= 90) evaluates to true"
+
+# 4. OUTCOME: What happens at the end of this path
+# - What gets returned or executed
+# - Example: "returns grade 'A' and exits the function"
+
+# STYLE:
+# - Reference actual code/conditions in parentheses
+# - Explain in terms of execution flow, not just code
+# - Be specific about conditions that trigger this path
+# - Keep it concise but complete
+
+# Start naturally ("This path...", "When execution...", "Along this path...").
+# No labels or prefixes. Write the explanation now:

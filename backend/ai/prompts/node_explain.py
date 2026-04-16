@@ -63,7 +63,7 @@ def build_prompt(
     # Build prompt
     prompt = f"""ROLE: You are a Control Flow Graph (CFG) analyst specializing in execution flow.
 
-TASK: Explain how block {block_id} behaves within the control flow graph and how execution flowsthrough it.
+TASK: Explain how block {block_id} behaves within the control flow graph and how execution flows through it.
 
 FUNCTION: {function_name}
 
@@ -140,29 +140,16 @@ Code:
     # Output instructions
     prompt += """
 OUTPUT INSTRUCTIONS:
+Explain this block in 2–3 concise sentences.
 
-Provide a clear 2-3 concise sentence explanation covering:
+Include:
+- What this block does (refer to code in parentheses)
+- How execution reaches here (conditions or flow)
+- What happens next based on execution
 
-1. PURPOSE: What this block does in the control flow
-- Include actual code in parentheses when referencing conditions/statements
-- Example: "checks if the score is at least 75 (score >= 75)"
+Keep the explanation clear, specific, and focused on control flow.
 
-2. CONTEXT: How execution reaches this block
-- Mention predecessor conditions that led here
-- Example: "reached when the first condition was false"
-
-3. BEHAVIOR: What happens based on this block's execution
-- Explain outgoing paths and their conditions
-- Example: "if true, returns 'B' and exits; otherwise continues to check..."
-
-STYLE:
-- Be specific and reference actual code statements in parentheses
-- Explain control flow behavior, not just what the code does
-- Use clear, educational language
-- Focus on graph structure and execution paths
-
-Start naturally ("Block B{block_id}...", "This block...", "When execution reaches...").
-No labels or prefixes. Write the explanation now:"""
+Start naturally ("Block B{block_id}...", "This block...", "When execution reaches...")."""
     
     # return prompt
     return prompt
@@ -401,3 +388,29 @@ def format_node_context_for_prompt(
         "paths_through_node": paths_through,
         "loop_context": loop_context
     }   
+
+
+
+
+# Provide a clear 2-3 concise sentence explanation covering:
+
+# 1. PURPOSE: What this block does in the control flow
+# - Include actual code in parentheses when referencing conditions/statements
+# - Example: "checks if the score is at least 75 (score >= 75)"
+
+# 2. CONTEXT: How execution reaches this block
+# - Mention predecessor conditions that led here
+# - Example: "reached when the first condition was false"
+
+# 3. BEHAVIOR: What happens based on this block's execution
+# - Explain outgoing paths and their conditions
+# - Example: "if true, returns 'B' and exits; otherwise continues to check..."
+
+# STYLE:
+# - Be specific and reference actual code statements in parentheses
+# - Explain control flow behavior, not just what the code does
+# - Use clear, educational language
+# - Focus on graph structure and execution paths
+
+# Start naturally ("Block B{block_id}...", "This block...", "When execution reaches...").
+# No labels or prefixes. Write the explanation now:
