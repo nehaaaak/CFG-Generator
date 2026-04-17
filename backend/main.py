@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import ast
 from .database import get_db, init_db
-from .db_models import User, CFGSession
+from .db_models import User, CFGSession, AIResponse
+from .ai.utils import create_input_hash  
 
 from .auth import (
     get_password_hash, 
@@ -373,42 +374,133 @@ async def generate_cfg(
             static_analysis_results = {"error": str(e)}
 
         # Generate AI explanation (PUBLIC-for all users)
-        overall_ai_explanation = None
-        try:
-            # Collect unreachable code from all functions
-            all_unreachable = []
-            for func_cfg in function_cfgs:
-                if hasattr(func_cfg, 'unreachable_code') and func_cfg.unreachable_code:
-                    all_unreachable.extend(func_cfg.unreachable_code)
+        # overall_ai_explanation = None
+        # try:
+        #     # Collect unreachable code from all functions
+        #     all_unreachable = []
+        #     for func_cfg in function_cfgs:
+        #         if hasattr(func_cfg, 'unreachable_code') and func_cfg.unreachable_code:
+        #             all_unreachable.extend(func_cfg.unreachable_code)
             
-            overall_ai_explanation = generate_overall_explanation_ai(
-                result, 
-                static_analysis_results,
-                all_unreachable
-            )
-        except Exception as e:
-            print(f"AI explanation error: {e}")
-            overall_ai_explanation = None
+        #     overall_ai_explanation = generate_overall_explanation_ai(
+        #         result, 
+        #         static_analysis_results,
+        #         all_unreachable
+        #     )
+        # except Exception as e:
+        #     print(f"AI explanation error: {e}")
+        #     overall_ai_explanation = None
 
-        # Save to database
+        # # Save to database
+        # if current_user:
+        #     session = CFGSession(
+        #         user_id=current_user.id,
+        #         code=code,
+        #         cfg_data=result,
+        #         static_analysis=static_analysis_results,  
+        #         overall_explanation=overall_ai_explanation,
+        #         name=input_data.name,
+        #         description=input_data.description,
+        #         overall_cc=overall_cc,
+        #         function_count=len(function_cfgs)
+        #     )
+        
+        #     db.add(session)
+        #     db.commit()
+        #     db.refresh(session)
+
+        # session_id_to_return = session.session_id if current_user and session else None
+
+        # return CFGResponse(
+        #     success=True,
+        #     functions=function_cfgs,
+        #     overall_cc=overall_cc,
+        #     static_analysis=static_analysis_results,
+        #     ai_explanation=overall_ai_explanation,
+        #     session_id=session_id_to_return,
+        #     error=None
+        # )
+
+        all_unreachable = []
+        for func_cfg in function_cfgs:
+            if hasattr(func_cfg, 'unreachable_code') and func_cfg.unreachable_code:
+                all_unreachable.extend(func_cfg.unreachable_code)
+
+        session = None
         if current_user:
             session = CFGSession(
                 user_id=current_user.id,
                 code=code,
                 cfg_data=result,
-                static_analysis=static_analysis_results,  
-                overall_explanation=overall_ai_explanation,
+                static_analysis=static_analysis_results,
+                overall_explanation=None,  # will update after AI call
                 name=input_data.name,
                 description=input_data.description,
                 overall_cc=overall_cc,
                 function_count=len(function_cfgs)
             )
-        
             db.add(session)
             db.commit()
             db.refresh(session)
 
-        session_id_to_return = session.session_id if current_user and session else None
+        overall_ai_explanation = None
+        try:
+            cache_input = {
+                "code": code,
+                "feature": "overall_explain"
+            }
+            input_hash = create_input_hash(cache_input)
+
+            # ✅ Logged-in users → cache
+            if current_user and session:
+                cached = db.query(AIResponse).filter(
+                    AIResponse.session_id == session.session_id,
+                    AIResponse.feature_type == "overall_explain",
+                    AIResponse.input_hash == input_hash
+                ).first()
+
+                if cached:
+                    overall_ai_explanation = cached.response_data.get("explanation", "")
+                else:
+                    overall_ai_explanation = generate_overall_explanation_ai(
+                        result,
+                        static_analysis_results,
+                        all_unreachable
+                    )
+
+                    # store in cache
+                    try:
+                        ai_response = AIResponse(
+                            session_id=session.session_id,
+                            user_id=current_user.id,
+                            feature_type="overall_explain",
+                            input_hash=input_hash,
+                            response_data={"explanation": overall_ai_explanation},
+                            tokens_used=None,
+                            model_used="gemini-2.5-flash"
+                        )
+                        db.add(ai_response)
+                        db.commit()
+                    except Exception as e:
+                        print("Cache save error:", e)
+
+            # ✅ Non-logged-in users → no cache
+            else:
+                overall_ai_explanation = generate_overall_explanation_ai(
+                    result,
+                    static_analysis_results,
+                    all_unreachable
+                )
+
+        except Exception as e:
+            print(f"AI explanation error: {e}")
+            overall_ai_explanation = None
+
+        if session:
+            session.overall_explanation = overall_ai_explanation
+            db.commit()
+
+        session_id_to_return = session.session_id if session else None
 
         return CFGResponse(
             success=True,

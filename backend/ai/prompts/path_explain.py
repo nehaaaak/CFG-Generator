@@ -250,7 +250,11 @@ def extract_path_from_selection(
             elif node["type"] == "end":
                 block_id = "END"
             
-            code_statements = node.get("code_statements") or [node.get("label", "")]
+            # code_statements = node.get("code_statements") or [node.get("label", "")]
+            code_statements = node.get("code_statements")
+            if not code_statements:
+                label = node.get("label")
+                code_statements = [label] if label else ["<no code available>"]
 
             path_blocks.append({
                 "block_id": block_id,
@@ -258,15 +262,24 @@ def extract_path_from_selection(
                 "code": " | ".join(code_statements),
                 "type": node.get("type", "process")
             })
-    
+    print("DEBUG cfg_edges (path):", cfg_edges[:3])
+
     # Extract edge conditions between consecutive nodes
     for i in range(len(selected_node_ids) - 1):
         from_id = selected_node_ids[i]
         to_id = selected_node_ids[i + 1]
         
         # Find edge
+        # edge = next(
+        #     (e for e in cfg_edges if e["from_node"] == from_id and e["to_node"] == to_id),
+        #     None
+        # )
         edge = next(
-            (e for e in cfg_edges if e["from_node"] == from_id and e["to_node"] == to_id),
+            (
+                e for e in cfg_edges
+                if (e.get("from_node") or e.get("from")) == from_id
+                and (e.get("to_node") or e.get("to")) == to_id
+            ),
             None
         )
         

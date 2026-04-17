@@ -244,8 +244,14 @@ def detect_loop_context(node, cfg_nodes, cfg_edges):
     predecessors = {}
 
     for edge in cfg_edges:
-        src = edge["from_node"]
-        dst = edge["to_node"]
+        # src = edge["from_node"]
+        # dst = edge["to_node"]
+        src = edge.get("from_node") or edge.get("from")
+        dst = edge.get("to_node") or edge.get("to")
+
+        if not src or not dst:
+            print("❌ Invalid edge in loop detection:", edge)
+            continue
 
         successors.setdefault(src, []).append(dst)
         predecessors.setdefault(dst, []).append(src)
@@ -317,6 +323,7 @@ def format_node_context_for_prompt(
     Helper to extract and format node context from CFG data.
     Returns formatted data ready for build_prompt().
     """
+    print("DEBUG edges sample:", cfg_edges[:3])
     # Fast node lookup (O(1) instead of repeated list scans)
     node_lookup = {n["id"]: n for n in cfg_nodes}
 
@@ -327,9 +334,16 @@ def format_node_context_for_prompt(
     # Find predecessors
     predecessors = []
     for edge in cfg_edges:
-        if edge["to_node"] == node["id"]:
+        to_id = edge.get("to_node") or edge.get("to")
+        from_id = edge.get("from_node") or edge.get("from")
+
+        if not to_id or not from_id:
+            print("❌ Invalid edge (missing keys):", edge)
+            continue
+
+        if to_id == node["id"]:
             # pred_node = next((n for n in cfg_nodes if n["id"] == edge["from_node"]), None)
-            pred_node = node_lookup.get(edge["from_node"])
+            pred_node = node_lookup.get(from_id)
             bn = pred_node.get('block_number')
             if pred_node:
                 predecessors.append({
@@ -343,9 +357,16 @@ def format_node_context_for_prompt(
     # Find successors
     successors = []
     for edge in cfg_edges:
-        if edge["from_node"] == node["id"]:
+        from_id = edge.get("from_node") or edge.get("from")
+        to_id = edge.get("to_node") or edge.get("to")
+
+        if not to_id or not from_id:
+            print("❌ Invalid edge (missing keys):", edge)
+            continue
+
+        if from_id == node["id"]:
             # succ_node = next((n for n in cfg_nodes if n["id"] == edge["to_node"]), None)
-            succ_node = node_lookup.get(edge["to_node"])
+            succ_node = node_lookup.get(to_id)
             bn = succ_node.get('block_number')
             if succ_node:
                 successors.append({
@@ -370,7 +391,12 @@ def format_node_context_for_prompt(
     # loop_context = None
     loop_context = detect_loop_context(node, cfg_nodes, cfg_edges)
     
-    code_statements = node.get("code_statements") or [node.get("label", "")]
+    # code_statements = node.get("code_statements") or [node.get("label", "")]
+    code_statements = node.get("code_statements")
+    if not code_statements:
+        label = node.get("label")
+        code_statements = [label] if label else ["<no code available>"]
+
     line_no = node.get("line_number")
     line_numbers = [line_no] * len(code_statements) if line_no else []
     return {
