@@ -50,8 +50,8 @@ from .cfg_logic.cfg_builder import build_function_cfg
 from .models.api_models import FunctionCFG, Node, Edge
 
 from .ai.services.overall_explainer import generate_from_static_analysis as generate_overall_explanation_ai
-from .ai.services.node_explainer import explain_node
-from .ai.services.path_explainer import explain_path
+from .ai.services.node_explainer import explain_node as explain_node_service
+from .ai.services.path_explainer import explain_path as explain_path_service
 from .ai.services.refactor_suggester import suggest_refactoring
 
 import uvicorn
@@ -565,7 +565,7 @@ async def explain_node(
         raise e
     
     # Generate explanation
-    result = explain_node(
+    result = explain_node_service(
         session_id=request.session_id,
         function_name=request.function_name,
         node_id=request.node_id,
@@ -596,7 +596,7 @@ async def explain_path(
         raise e
     
     # Generate explanation
-    result = explain_path(
+    result = explain_path_service(
         session_id=request.session_id,
         function_name=request.function_name,
         path_node_ids=request.path_node_ids,
