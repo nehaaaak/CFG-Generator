@@ -120,6 +120,10 @@ CONSTRAINTS:
 ✓ PRESERVE exact behavior — same inputs must produce same outputs
 ✓ Keep function signature identical
 ✓ No new imports unless essential  
+✓ Do not make changes that could alter behavior
+✓ Do not introduce new logic branches or remove existing ones
+✓ Preserve execution order and decision logic exactly 
+✓ Do not modify condition expressions or their evaluation order 
 
 OUTPUT FORMAT: Provide your response in this EXACT structure:
 

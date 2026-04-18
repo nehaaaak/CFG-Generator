@@ -123,6 +123,14 @@ CFG ANALYSIS:
     
     # Output instructions
     prompt += """
+Rules:
+- Be specific to this code
+- Focus on structural improvements (extract method, reduce nesting, simplify flow)
+- Estimate impact where possible (e.g., "reduces CC from 12 to 7")
+- Do not suggest changes that alter program logic or behavior
+- Avoid generic or stylistic advice
+- Keep each suggestion short and actionable. Limit each suggestion to 60–80 words
+    
 OUTPUT INSTRUCTIONS:
 Provide 3-4 prioritized refactoring suggestions.
 
@@ -131,13 +139,6 @@ FORMAT:
    [1–2 line explanation of what to do and why]
 
 2. ... (repeat format)
-
-Rules:
-- Be specific to this code
-- Focus on structural improvements (extract method, reduce nesting, simplify flow)
-- Estimate impact where possible (e.g., "reduces CC from 12 to 7")
-- Keep each suggestion short and actionable. Limit each suggestion to 60–80 words
-- Avoid generic or stylistic advice
 
 Start directly with suggestion 1. No intro or label needed."""
     

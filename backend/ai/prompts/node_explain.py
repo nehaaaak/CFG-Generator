@@ -139,8 +139,13 @@ Code:
     
     # Output instructions
     prompt += """
+STRICT RULES:
+- Use only the given CFG structure (predecessors, successors, paths)
+- Do not assume or add missing flow
+- Follow the provided execution order exactly
+
 OUTPUT INSTRUCTIONS:
-Explain this block in 2–3 concise sentences.
+Explain this block in 2–3 concise sentences based strictly on the given CFG flow.
 
 Include:
 - What this block does (refer to code in parentheses)

@@ -103,7 +103,7 @@ def suggest_refactoring(
     
     result = generate_completion(
         prompt=prompt,
-        max_tokens=470,  
+        max_tokens=500,  
         temperature=0.3,
         thinking_budget=60      
     )
@@ -187,18 +187,17 @@ def _extract_function_code(full_code: str, function_name: str) -> Optional[str]:
 def parse_refactor_suggestions(text: str):
     suggestions = []
 
-    # Match numbered suggestions like:
-    # 1. Extract Method
-    #    explanation...
-    pattern = r'\d+\.\s*(.+?)(?=\n\d+\.|\Z)'
-
+    pattern = r'\d+\.\s*(.*?)(?=\n\d+\.|\Z)'
     matches = re.findall(pattern, text, re.DOTALL)
 
     for i, match in enumerate(matches, start=1):
-        lines = match.strip().split("\n")
+        lines = [l.strip() for l in match.strip().split("\n") if l.strip()]
 
-        title = lines[0].strip()
-        description = " ".join(line.strip() for line in lines[1:]).strip()
+        if not lines:
+            continue
+
+        title = lines[0]
+        description = " ".join(lines[1:]) if len(lines) > 1 else ""
 
         suggestions.append({
             "id": i,
@@ -207,6 +206,36 @@ def parse_refactor_suggestions(text: str):
         })
 
     return suggestions
+
+
+
+
+
+
+
+# def parse_refactor_suggestions(text: str):
+#     suggestions = []
+
+#     # Match numbered suggestions like:
+#     # 1. Extract Method
+#     #    explanation...
+#     pattern = r'\d+\.\s*(.+?)(?=\n\d+\.|\Z)'
+
+#     matches = re.findall(pattern, text, re.DOTALL)
+
+#     for i, match in enumerate(matches, start=1):
+#         lines = match.strip().split("\n")
+
+#         title = lines[0].strip()
+#         description = " ".join(line.strip() for line in lines[1:]).strip()
+
+#         suggestions.append({
+#             "id": i,
+#             "title": title,
+#             "description": description
+#         })
+
+#     return suggestions
 
 
     

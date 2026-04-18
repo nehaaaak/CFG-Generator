@@ -1,0 +1,274 @@
+"""
+Refactor Code Service
+Generates actual refactored code using AI
+"""
+
+from typing import List, Dict, Optional
+from sqlalchemy.orm import Session
+from ..client_wrapper import generate_completion
+from ..prompts.refactor_code import build_prompt, prepare_refactor_input, parse_refactor_response
+from ..prompts.refactor_suggest import build_prompt as suggest_prompt, prepare_refactor_context
+from ..services.refactor_suggester import parse_refactor_suggestions
+from ..utils import create_input_hash
+from ...db_models import CFGSession, AIResponse
+import ast
+import hashlib
+
+
+MAX_CODE_LINES = 30
+
+
+def refactor_code(
+    session_id: str,
+    function_name: Optional[str] = None,
+    db: Session = None
+) -> Dict:
+    # Get session
+    session = db.query(CFGSession).filter(
+        CFGSession.session_id == session_id
+    ).first()
+
+    if not session:
+        return _error_response("Session not found")
+
+    static_analysis = session.static_analysis
+    if not static_analysis:
+        return _error_response("No static analysis available")
+
+    # Determine target function
+    if not function_name:
+        function_name = list(static_analysis.keys())[0] if static_analysis else None
+
+    if not function_name or function_name not in static_analysis:
+        return _error_response("Function not found")
+
+    # Extract function code
+    function_code = _extract_function_code(session.code, function_name)
+    if not function_code:
+        return _error_response("Could not extract function code")
+
+    code_hash = hashlib.sha256(function_code.encode()).hexdigest()
+
+    # Check line limit
+    code_lines = function_code.split('\n')
+    if len(code_lines) > MAX_CODE_LINES:
+        return _error_response(
+            f"Function exceeds {MAX_CODE_LINES} line limit for refactoring "
+            f"({len(code_lines)} lines). Please refactor manually or split the function first."
+        )
+
+    # Get cached AI suggestions silently if available
+    # ai_suggestions = None
+    ai_suggestions: Optional[list] = None
+    try:
+        cache_input = {
+        "session_id": session_id,
+        "function": function_name,
+        # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
+        "code_hash": code_hash
+        }
+        input_hash = create_input_hash(cache_input)
+
+        cached_suggestion = db.query(AIResponse).filter(
+            AIResponse.session_id == session_id,
+            AIResponse.feature_type == "refactor_suggest",
+            AIResponse.input_hash == input_hash
+        ).first()
+
+        if cached_suggestion:
+            # ai_suggestions = cached_suggestion.response_data.get("suggestions")
+            ai_suggestions = cached_suggestion.response_data.get("parsed_suggestions")
+    except Exception:
+        pass
+
+    # If no cached suggestions, generate silently
+    if ai_suggestions is None:
+        ai_suggestions = _generate_suggestions_silently(
+            session_id, function_name, static_analysis, function_code, code_hash, session, db
+        )
+
+    if ai_suggestions is None:
+        ai_suggestions = []
+
+    # Prepare context
+    context = prepare_refactor_input(
+        function_name=function_name,
+        static_analysis=static_analysis[function_name],
+        code=function_code,
+        ai_suggestions=ai_suggestions
+    )
+
+    # Cache key
+    cache_input = {
+        "session_id": session_id,
+        "function": function_name,
+        # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
+        "code_hash": code_hash
+    }
+    input_hash = create_input_hash(cache_input)
+
+    # Check cache
+    cached = db.query(AIResponse).filter(
+        AIResponse.session_id == session_id,
+        AIResponse.feature_type == "refactor_code",
+        AIResponse.input_hash == input_hash
+    ).first()
+
+    if cached:
+        data = cached.response_data
+        return {
+            "original_code": function_code,
+            "refactored_code": data.get("refactored_code", ""),
+            "changes": data.get("changes", ""),
+            "tokens_used": cached.tokens_used or 0,
+            "cached": True,
+            "error": None
+        }
+
+    # Generate
+    prompt = build_prompt(**context)
+
+    result = generate_completion(
+        prompt=prompt,
+        max_tokens=650,
+        temperature=0.2,
+        thinking_budget=120
+    )
+
+    if result["error"]:
+        return _error_response(result["error"])
+
+    # Parse response
+    parsed = parse_refactor_response(result["text"])
+
+    if not parsed["refactored_code"]:
+        return _error_response("Failed to extract refactored code from response")
+
+    # Syntax validation
+    try:
+        ast.parse(parsed["refactored_code"])
+    except SyntaxError as e:
+        return {
+            "original_code": function_code,
+            "refactored_code": parsed["refactored_code"],
+            "changes": parsed["changes"],
+            "tokens_used": result["tokens_used"],
+            "cached": False,
+            "error": f"Generated code has syntax error: {str(e)}"
+        }
+
+    # Store in cache
+    try:
+        ai_response = AIResponse(
+            session_id=session_id,
+            user_id=session.user_id,
+            feature_type="refactor_code",
+            input_hash=input_hash,
+            response_data={
+                "refactored_code": parsed["refactored_code"],
+                "changes": parsed["changes"]
+            },
+            tokens_used=result["tokens_used"],
+            model_used="gemini-2.5-flash"
+        )
+        db.add(ai_response)
+        db.commit()
+    except Exception as e:
+        print(f"Cache storage error: {e}")
+
+    return {
+        "original_code": function_code,
+        "refactored_code": parsed["refactored_code"],
+        "changes": parsed["changes"],
+        "tokens_used": result["tokens_used"],
+        "cached": False,
+        "error": None
+    }
+
+
+def _generate_suggestions_silently(
+    session_id: str,
+    function_name: str,
+    static_analysis: Dict,
+    function_code: str,
+    code_hash: str,
+    session,
+    db: Session
+) -> Optional[List[Dict]]:
+    """Generate AI suggestions silently for use in refactoring."""
+    try:
+        context = prepare_refactor_context(
+            function_name,
+            static_analysis[function_name],
+            function_code
+        )
+
+        prompt = suggest_prompt(**context)
+        result = generate_completion(
+            prompt=prompt,
+            max_tokens=500,
+            temperature=0.3,
+            thinking_budget=60 
+        )
+
+        if result["error"] or not result["text"]:
+            return None
+
+        parsed = parse_refactor_suggestions(result["text"])
+
+        # Cache it
+        try:
+            cache_input = {
+                "session_id": session_id,
+                "function": function_name,
+                # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
+                "code_hash": code_hash
+            }
+            input_hash = create_input_hash(cache_input)
+
+            ai_response = AIResponse(
+                session_id=session_id,
+                user_id=session.user_id,
+                feature_type="refactor_suggest",
+                input_hash=input_hash,
+                response_data={"suggestions": result["text"], "parsed_suggestions": parsed},
+                tokens_used=result["tokens_used"],
+                model_used="gemini-2.5-flash"
+            )
+            db.add(ai_response)
+            db.commit()
+        except Exception:
+            pass
+
+        # return result["text"]
+        return parsed if parsed else None
+
+    except Exception as e:
+        print(f"Silent suggestion generation failed: {e}")
+        return None
+
+
+def _extract_function_code(full_code: str, function_name: str) -> Optional[str]:
+    try:
+        tree = ast.parse(full_code)
+        lines = full_code.splitlines()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                start = node.lineno - 1
+                end = node.end_lineno
+                return '\n'.join(lines[start:end])
+        return None
+    except Exception as e:
+        print(f"Function extraction error: {e}")
+        return None
+
+
+def _error_response(message: str) -> Dict:
+    return {
+        "original_code": "",
+        "refactored_code": "",
+        "changes": "",
+        "tokens_used": 0,
+        "cached": False,
+        "error": message
+    }

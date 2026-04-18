@@ -164,6 +164,7 @@ EXECUTION PATH:
 
 TYPE:
 {path_type}
+The TYPE above is already determined — do NOT override it.
 
 PATH METRICS:
 Length: {path_metrics['length']} blocks
@@ -200,10 +201,16 @@ Decision Points: {path_metrics['decisions']}
     
     # Output instructions
     prompt += """
+STRICT RULES:
+- Do not assume specific inputs
+- Describe behavior only from the given path and decisions
+- Do not infer conditions not explicitly shown
+- Explain only what the path guarantees, not what inputs might cause it
+
 OUTPUT INSTRUCTIONS:
-Explain in 3–4 concise sentences:
+Explain in 3–4 concise sentences based strictly on the given execution path:
 - Mention what kind of execution path this represents(e.g., early return, loop iteration, normal completion)
-- What input/condition triggers this path. Example: "when the score is 90 or above"
+- What execution scenario this path represents based on control flow (e.g., condition never satisfied, loop completes without match)
 - How execution proceeds through key decisions. Example: "the first condition (score >= 90) evaluates to true"
 - What the final outcome is(what gets returned or executed). Example: "returns grade 'A' and exits the function"
 
