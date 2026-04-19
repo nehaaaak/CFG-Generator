@@ -115,6 +115,7 @@ Apply these improvements (prioritize in order):
 4. Use Pythonic constructs where safe (comprehensions, enumerate, etc.)  
 5. Replace magic values with named constants  
 6. Remove dead or unused code 
+7. Remove duplicated logic, if there is any
 
 CONSTRAINTS:
 ✓ PRESERVE exact behavior — same inputs must produce same outputs

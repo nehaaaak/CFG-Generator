@@ -9,6 +9,8 @@ from ..client_wrapper import generate_completion
 from ..prompts.refactor_suggest import build_prompt, prepare_refactor_context
 from ..utils import create_input_hash
 from ...db_models import CFGSession, AIResponse
+from ...dependencies import check_and_update_ai_quota
+from fastapi import HTTPException
 import ast
 import hashlib
 import re
@@ -16,6 +18,7 @@ import re
 
 def suggest_refactoring(
     session_id: str,
+    user,
     function_name: Optional[str] = None,
     db: Session = None
 ) -> Dict:
@@ -96,6 +99,18 @@ def suggest_refactoring(
             "tokens_used": cached.tokens_used or 0,
             "cached": True,
             "error": None
+        }
+    
+    try:
+        check_and_update_ai_quota(user, "refactor_suggest", db)
+    except HTTPException as e:
+        return {
+            # "explanation": "",
+            "parsed_suggestions": [],
+            "suggestions": "",
+            "tokens_used": 0,
+            "cached": False,
+            "error": e.detail if hasattr(e, "detail") else str(e)
         }
     
     # Generate suggestions

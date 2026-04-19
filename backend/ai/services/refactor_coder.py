@@ -11,6 +11,8 @@ from ..prompts.refactor_suggest import build_prompt as suggest_prompt, prepare_r
 from ..services.refactor_suggester import parse_refactor_suggestions
 from ..utils import create_input_hash
 from ...db_models import CFGSession, AIResponse
+from ...dependencies import check_and_update_ai_quota
+from fastapi import HTTPException
 import ast
 import hashlib
 
@@ -20,6 +22,7 @@ MAX_CODE_LINES = 30
 
 def refactor_code(
     session_id: str,
+    user,
     function_name: Optional[str] = None,
     db: Session = None
 ) -> Dict:
@@ -56,6 +59,45 @@ def refactor_code(
             f"Function exceeds {MAX_CODE_LINES} line limit for refactoring "
             f"({len(code_lines)} lines). Please refactor manually or split the function first."
         )
+    
+    # Cache key
+    cache_input = {
+        "session_id": session_id,
+        "function": function_name,
+        # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
+        "code_hash": code_hash
+    }
+    input_hash = create_input_hash(cache_input)
+
+    # Check cache
+    cached = db.query(AIResponse).filter(
+        AIResponse.session_id == session_id,
+        AIResponse.feature_type == "refactor_code",
+        AIResponse.input_hash == input_hash
+    ).first()
+
+    if cached:
+        data = cached.response_data
+        return {
+            "original_code": function_code,
+            "refactored_code": data.get("refactored_code", ""),
+            "changes": data.get("changes", ""),
+            "tokens_used": cached.tokens_used or 0,
+            "cached": True,
+            "error": None
+        }
+
+    try:
+        check_and_update_ai_quota(user, "refactor_code", db)
+    except HTTPException as e:
+        return {
+            "original_code": function_code,
+            "refactored_code": "",
+            "changes": "",
+            "tokens_used": 0,
+            "cached": False,
+            "error": e.detail if hasattr(e, "detail") else str(e)
+        }
 
     # Get cached AI suggestions silently if available
     # ai_suggestions = None
@@ -98,39 +140,12 @@ def refactor_code(
         ai_suggestions=ai_suggestions
     )
 
-    # Cache key
-    cache_input = {
-        "session_id": session_id,
-        "function": function_name,
-        # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
-        "code_hash": code_hash
-    }
-    input_hash = create_input_hash(cache_input)
-
-    # Check cache
-    cached = db.query(AIResponse).filter(
-        AIResponse.session_id == session_id,
-        AIResponse.feature_type == "refactor_code",
-        AIResponse.input_hash == input_hash
-    ).first()
-
-    if cached:
-        data = cached.response_data
-        return {
-            "original_code": function_code,
-            "refactored_code": data.get("refactored_code", ""),
-            "changes": data.get("changes", ""),
-            "tokens_used": cached.tokens_used or 0,
-            "cached": True,
-            "error": None
-        }
-
     # Generate
     prompt = build_prompt(**context)
 
     result = generate_completion(
         prompt=prompt,
-        max_tokens=650,
+        max_tokens=660,
         temperature=0.2,
         thinking_budget=120
     )

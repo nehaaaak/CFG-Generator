@@ -9,6 +9,8 @@ from ..client_wrapper import generate_completion
 from ..prompts.node_explain import build_prompt, format_node_context_for_prompt
 from ..utils import create_input_hash
 from ...db_models import CFGSession, AIResponse
+from ...dependencies import check_and_update_ai_quota
+from fastapi import HTTPException
 import json
 
 
@@ -16,6 +18,7 @@ def explain_node(
     session_id: str,
     function_name: str,
     node_id: str,
+    user,
     db: Session
 ) -> Dict:
     """
@@ -185,6 +188,16 @@ def explain_node(
             "tokens_used": cached.tokens_used or 0,
             "cached": True,
             "error": None
+        }
+    
+    try:
+        check_and_update_ai_quota(user, "node_explain", db)
+    except HTTPException as e:
+        return {
+            "explanation": "",
+            "tokens_used": 0,
+            "cached": False,
+            "error": e.detail if hasattr(e, "detail") else str(e)
         }
     
     # Generate explanation

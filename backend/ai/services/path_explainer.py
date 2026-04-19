@@ -9,12 +9,15 @@ from ..client_wrapper import generate_completion
 from ..prompts.path_explain import build_prompt, extract_path_from_selection
 from ..utils import create_input_hash
 from ...db_models import CFGSession, AIResponse
+from ...dependencies import check_and_update_ai_quota
+from fastapi import HTTPException
 
 
 def explain_path(
     session_id: str,
     function_name: str,
     path_node_ids: List[str],
+    user,
     db: Session
 ) -> Dict:
     """
@@ -126,6 +129,16 @@ def explain_path(
             "tokens_used": cached.tokens_used or 0,
             "cached": True,
             "error": None
+        }
+    
+    try:
+        check_and_update_ai_quota(user, "path_explain", db)
+    except HTTPException as e:
+        return {
+            "explanation": "",
+            "tokens_used": 0,
+            "cached": False,
+            "error": e.detail if hasattr(e, "detail") else str(e)
         }
     
     # Generate explanation

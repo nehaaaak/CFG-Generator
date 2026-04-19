@@ -20,7 +20,7 @@ from .auth import (
     clear_refresh_cookie,
     get_refresh_token_from_cookie
 )
-from .dependencies import get_current_user, get_current_user_optional, get_user_ai_quota, check_and_update_ai_quota
+from .dependencies import get_current_user, get_current_user_optional, get_user_ai_quota
 
 from .models.api_models import (
     UserRegister, 
@@ -40,7 +40,12 @@ from .models.api_models import (
     AIPathExplainResponse,
     AIRefactorSuggestRequest,
     AIRefactorSuggestResponse,
-    AIQuotaResponse  
+    AIRefactorCodeRequest,
+    AIRefactorCodeResponse,
+    AIQuotaResponse,
+    CFGCompareMetrics,
+    CFGCompareRequest,
+    CFGCompareResponse  
 )
 
 
@@ -54,10 +59,12 @@ from .ai.services.overall_explainer import generate_from_static_analysis as gene
 from .ai.services.node_explainer import explain_node as explain_node_service
 from .ai.services.path_explainer import explain_path as explain_path_service
 from .ai.services.refactor_suggester import suggest_refactoring
+from .ai.services.refactor_coder import refactor_code as refactor_code_service
 
 import uvicorn
 import os
 from contextlib import asynccontextmanager
+import hashlib
 
 
 @asynccontextmanager
@@ -651,18 +658,22 @@ async def explain_node(
     Explain a specific CFG node (Protected - 2/day limit)
     """
     # Check quota
-    try:
-        check_and_update_ai_quota(current_user, "node_explain", db)
-    except HTTPException as e:
-        raise e
+    # try:
+    #     check_and_update_ai_quota(current_user, "node_explain", db)
+    # except HTTPException as e:
+    #     raise e
     
     # Generate explanation
     result = explain_node_service(
         session_id=request.session_id,
         function_name=request.function_name,
         node_id=request.node_id,
+        user=current_user,
         db=db
     )
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
     
     return AINodeExplainResponse(
         explanation=result["explanation"],
@@ -682,19 +693,23 @@ async def explain_path(
     Explain an execution path through the CFG (Protected - 2/day limit)
     """
     # Check quota
-    try:
-        check_and_update_ai_quota(current_user, "path_explain", db)
-    except HTTPException as e:
-        raise e
+    # try:
+    #     check_and_update_ai_quota(current_user, "path_explain", db)
+    # except HTTPException as e:
+    #     raise e
     
     # Generate explanation
     result = explain_path_service(
         session_id=request.session_id,
         function_name=request.function_name,
         path_node_ids=request.path_node_ids,
+        user=current_user,
         db=db
     )
     
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+
     return AIPathExplainResponse(
         explanation=result["explanation"],
         tokens_used=result["tokens_used"],
@@ -713,14 +728,15 @@ async def refactor_suggest(
     Get AI refactoring suggestions (Protected - 2/day limit)
     """
     # Check quota
-    try:
-        check_and_update_ai_quota(current_user, "refactor_suggest", db)
-    except HTTPException as e:
-        raise e
+    # try:
+    #     check_and_update_ai_quota(current_user, "refactor_suggest", db)
+    # except HTTPException as e:
+    #     raise e
     
     # Generate suggestions
     result = suggest_refactoring(
         session_id=request.session_id,
+        user=current_user,
         function_name=request.function_name,
         db=db
     )
@@ -741,6 +757,255 @@ async def refactor_suggest(
         cached=result["cached"],
         error=result.get("error")
     )
+
+
+@app.post("/api/ai/refactor-code", response_model=AIRefactorCodeResponse)
+async def refactor_code_endpoint(
+    request: AIRefactorCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):  
+    # try:
+    #     check_and_update_ai_quota(current_user, "refactor_code", db)
+    # except HTTPException as e:
+    #     raise e
+
+    result = refactor_code_service(
+        session_id=request.session_id,
+        user=current_user,
+        function_name=request.function_name,
+        db=db
+    )
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return AIRefactorCodeResponse(**result)
+
+
+@app.post("/api/ai/compare-cfg", response_model=CFGCompareResponse)
+async def compare_cfg_endpoint(
+    request: CFGCompareRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Get original metrics from session
+        session = db.query(CFGSession).filter(
+            CFGSession.session_id == request.session_id
+        ).first()
+
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        static_analysis = session.static_analysis or {}
+        if request.function_name not in static_analysis:
+            raise HTTPException(status_code=404, detail="Function not found")
+
+        # Extract original function metrics from stored static analysis
+        original_analysis = session.static_analysis.get(request.function_name, {})
+        original_metrics = original_analysis.get("metrics", {})
+        original_issues = (
+            len(original_analysis.get("code_smells", [])) +
+            len(original_analysis.get("hotspots", []))
+        )
+
+        original_cfg = None
+        functions = session.cfg_data.get("functions", {})
+
+        for fname, fdata in functions.items():
+            if fname == request.function_name:
+                original_cfg = {
+                    "nodes": fdata.get("nodes", []),
+                    "edges": fdata.get("edges", [])
+                }
+                break
+
+        if not original_cfg:
+            raise HTTPException(status_code=404, detail="Original CFG not found")
+
+        original = CFGCompareMetrics(
+            cyclomatic_complexity=original_metrics.get("cyclomatic_complexity", 0),
+            nodes=original_metrics.get("nodes", 0),
+            edges=original_metrics.get("edges", 0),
+            decision_points=original_metrics.get("decision_points", 0),
+            loops=original_metrics.get("loops", 0),
+            risk_level=original_metrics.get("risk_level", "Unknown"),
+            complexity_category=original_metrics.get("complexity_category", "Unknown"),
+            issues_count=original_issues,
+            code_smells=original_analysis.get("code_smells", []),
+            hotspots=original_analysis.get("hotspots", [])
+        )
+
+        function_code = _extract_function_code(session.code, request.function_name)
+
+        if not function_code:
+            raise HTTPException(status_code=400, detail="Original function extraction failed")
+
+        code_hash = hashlib.sha256(function_code.encode()).hexdigest()
+
+        cache_input = {
+            "session_id": request.session_id,
+            "function": request.function_name,
+            "code_hash": code_hash
+        }
+
+        input_hash = create_input_hash(cache_input)
+
+        # Get refactored code from cache
+        cached_refactor = db.query(AIResponse).filter(
+            AIResponse.session_id == request.session_id,
+            AIResponse.feature_type == "refactor_code",
+            AIResponse.input_hash == input_hash
+        ).first()
+
+        if not cached_refactor:
+            raise HTTPException(status_code=404, detail="No refactored code found. Generate refactoring first.")
+
+        refactored_code = cached_refactor.response_data.get("refactored_code", "")
+        if not refactored_code:
+            raise HTTPException(status_code=404, detail="Refactored code is empty")
+
+        # Generate CFG for refactored code
+        try:
+            refactored_result = generate_cfg_for_code(refactored_code)
+            if not refactored_result["success"]:
+                raise HTTPException(status_code=400, detail="Failed to generate CFG for refactored code")
+
+            ref_func = refactored_result["functions"].get(request.function_name)
+
+            if not ref_func:
+                ref_func = list(refactored_result["functions"].values())[0]
+
+            ref_cfg = {
+                "nodes": ref_func.get("nodes", []),
+                "edges": ref_func.get("edges", [])
+            }
+
+            # Get the specific function's data
+            func_data = refactored_result["functions"].get(request.function_name)
+            if not func_data:
+                # fallback to first function
+                func_data = list(refactored_result["functions"].values())[0]
+
+            refactored_metrics_raw = func_data.get("metrics", {})
+
+            # Run static analysis for issues count
+            refactored_issues = 0
+            refactored_smells = []
+            refactored_hotspots = []
+
+            target_func_node = None
+            try:
+                tree = ast.parse(refactored_code)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.FunctionDef) and node.name == request.function_name:
+                        target_func_node = node
+                        break
+
+                # fallback (if name mismatch)
+                if not target_func_node:
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.FunctionDef):
+                            target_func_node = node
+                            break
+                    
+                if target_func_node:
+                    func_cfg = build_function_cfg(node, node.name)
+                    func_code = ast.unparse(node)
+                    analysis = run_complete_static_analysis(func_cfg, func_code)
+                    refactored_smells = analysis.get("code_smells", [])
+                    refactored_hotspots = analysis.get("hotspots", [])
+                    refactored_issues = (
+                        len(refactored_smells) +
+                        len(refactored_hotspots)
+                        )
+                    # break
+            except Exception as e:
+                print(f"Refactored static analysis error: {e}")
+
+            refactored = CFGCompareMetrics(
+                cyclomatic_complexity=refactored_metrics_raw.get("cyclomatic_complexity", 0),
+                nodes=refactored_metrics_raw.get("nodes", 0),
+                edges=refactored_metrics_raw.get("edges", 0),
+                decision_points=refactored_metrics_raw.get("decision_points", 0),
+                loops=refactored_metrics_raw.get("loops", 0),
+                risk_level=refactored_metrics_raw.get("risk_level", "Unknown"),
+                complexity_category=refactored_metrics_raw.get("complexity_category", "Unknown"),
+                issues_count=refactored_issues,
+                code_smells=refactored_smells,
+                hotspots=refactored_hotspots
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"CFG generation error: {str(e)}")
+
+        return CFGCompareResponse(
+            original={
+                "metrics": original,
+                "cfg": original_cfg
+            },
+            refactored={
+                "metrics": refactored,
+                "cfg": ref_cfg
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        return CFGCompareResponse(
+            original={
+                "metrics": CFGCompareMetrics(
+                    cyclomatic_complexity=0,
+                    nodes=0,
+                    edges=0,
+                    decision_points=0,
+                    loops=0,
+                    risk_level="Unknown",
+                    complexity_category="Unknown",
+                    issues_count=0
+                ),
+                "cfg": {
+                    "nodes": [],
+                    "edges": []
+                }
+            },
+            refactored={
+                "metrics": CFGCompareMetrics(
+                    cyclomatic_complexity=0,
+                    nodes=0,
+                    edges=0,
+                    decision_points=0,
+                    loops=0,
+                    risk_level="Unknown",
+                    complexity_category="Unknown",
+                    issues_count=0
+                ),
+                "cfg": {
+                    "nodes": [],
+                    "edges": []
+                }
+            },
+            error=str(e)
+        )
+
+def _extract_function_code(full_code: str, function_name: str) -> Optional[str]:
+    try:
+        tree = ast.parse(full_code)
+        lines = full_code.splitlines()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                start = node.lineno - 1
+                end = node.end_lineno
+                return '\n'.join(lines[start:end])
+        return None
+    except Exception as e:
+        print(f"Function extraction error: {e}")
+        return None
+
+
 
 
 

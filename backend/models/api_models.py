@@ -171,13 +171,12 @@ class AIRefactorCodeRequest(BaseModel):
     """Request actual code refactoring"""
     session_id: str
     function_name: Optional[str] = None
-    target_goal: str  # e.g., "reduce_cc", "simplify_nesting"
 
 
-class AITestGenRequest(BaseModel):
-    """Request test case generation"""
-    session_id: str
-    function_name: str
+# class AITestGenRequest(BaseModel):
+#     """Request test case generation"""
+#     session_id: str
+#     function_name: str
 
 
 class AIResponse(BaseModel):
@@ -192,7 +191,7 @@ class AIResponse(BaseModel):
 class AINodeExplainResponse(BaseModel):
     """Response from node explanation"""
     explanation: str
-    tokens_used: int
+    tokens_used: Optional[int] = None
     cached: bool
     error: Optional[str] = None
 
@@ -200,7 +199,7 @@ class AINodeExplainResponse(BaseModel):
 class AIPathExplainResponse(BaseModel):
     """Response from path explanation"""
     explanation: str
-    tokens_used: int
+    tokens_used: Optional[int] = None
     cached: bool
     error: Optional[str] = None
 
@@ -218,9 +217,18 @@ class AIRefactorSuggestResponse(BaseModel):
     """Response with refactoring suggestions"""
     parsed_suggestions: List[RefactorSuggestionItem]
     suggestions: str
-    tokens_used: int
+    tokens_used: Optional[int] = None
     cached: bool
     error: Optional[str] = None
+
+
+class AIRefactorCodeResponse(BaseModel):
+    original_code: str
+    refactored_code: str
+    changes: Optional[str] = ""  
+    tokens_used: Optional[int] = None
+    cached: bool
+    error: Optional[str] = None  
 
 
 class AIQuotaResponse(BaseModel):
@@ -229,8 +237,42 @@ class AIQuotaResponse(BaseModel):
     path_explain_remaining: int
     refactor_suggest_remaining: int
     refactor_code_remaining: int
-    test_gen_remaining: int
+    # test_gen_remaining: int
     reset_date: Optional[str] = None
 
 
+# ==================== COMPARE MODELS ====================
 
+class CFGCompareRequest(BaseModel):
+    session_id: str
+    function_name: str
+
+class CFGCompareMetrics(BaseModel):
+    cyclomatic_complexity: int
+    nodes: int
+    edges: int
+    decision_points: int
+    loops: int
+    risk_level: str
+    complexity_category: str
+    issues_count: int  
+    code_smells: List[Dict[str, Any]] = []
+    hotspots: List[Dict[str, Any]] = []
+
+class CFGData(BaseModel):
+    nodes: List[Dict[str, Any]]
+    edges: List[Dict[str, Any]]
+
+class CFGCompareResult(BaseModel):
+    metrics: CFGCompareMetrics
+    cfg: CFGData
+
+class CFGCompareResponse(BaseModel):
+    original: CFGCompareResult
+    refactored: CFGCompareResult
+    error: Optional[str] = None
+
+# class CFGCompareResponse(BaseModel):
+#     original: CFGCompareMetrics
+#     refactored: CFGCompareMetrics
+#     error: Optional[str] = None
