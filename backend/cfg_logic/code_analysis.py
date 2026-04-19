@@ -329,10 +329,20 @@ class DataFlowAnalyzer:
         # Collect ALL usages (global)
         for block in self.cfg.blocks.values():
             for stmt in block.statements:
-                vars_in_stmt = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', stmt.text)
-                for v in vars_in_stmt:
-                    if v in self.variables:
-                        used_vars.add(v)
+                if self._is_assignment(stmt.text):
+                    parts = stmt.text.split('=', 1)
+                    if len(parts) == 2:
+                        rhs = parts[1]
+
+                        rhs_vars = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', rhs)
+                        for v in rhs_vars:
+                            if v in self.variables:
+                                used_vars.add(v)
+                else:
+                    vars_in_stmt = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', stmt.text)
+                    for v in vars_in_stmt:
+                        if v in self.variables:
+                            used_vars.add(v)
 
         # Find unused
         for block_id, var in defined_vars:
