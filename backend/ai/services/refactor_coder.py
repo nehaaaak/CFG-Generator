@@ -143,6 +143,8 @@ def refactor_code(
     # Generate
     prompt = build_prompt(**context)
 
+    print("DEBUG code refactor prompt:", prompt)
+
     result = generate_completion(
         prompt=prompt,
         max_tokens=660,

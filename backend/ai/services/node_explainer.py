@@ -247,8 +247,8 @@ def explain_node(
     except Exception as e:
         print(f"Cache storage error: {e}")
     
-    print("DEBUG cfg_data keys:", cfg_data.keys())
-    print("DEBUG functions:", cfg_data.get("functions", []))
+    # print("DEBUG cfg_data keys:", cfg_data.keys())
+    # print("DEBUG functions:", cfg_data.get("functions", []))
 
     return {
         "explanation": text,

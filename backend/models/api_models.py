@@ -205,12 +205,9 @@ class AIPathExplainResponse(BaseModel):
 
 
 class RefactorSuggestionItem(BaseModel):
-    priority: int
-    refactoring: str
-    problem: str
-    solution: str
-    benefit: str
-    lines: str
+    id: int
+    title:str
+    description:str
 
 
 class AIRefactorSuggestResponse(BaseModel):

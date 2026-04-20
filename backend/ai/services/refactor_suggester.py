@@ -115,6 +115,8 @@ def suggest_refactoring(
     
     # Generate suggestions
     prompt = build_prompt(**context)
+
+    print("DEBUG suggestions prompt:", prompt)
     
     result = generate_completion(
         prompt=prompt,
@@ -212,6 +214,7 @@ def parse_refactor_suggestions(text: str):
             continue
 
         title = lines[0]
+        title = title.replace("*", "").strip()
         description = " ".join(lines[1:]) if len(lines) > 1 else ""
 
         suggestions.append({
