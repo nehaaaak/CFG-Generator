@@ -18,7 +18,7 @@ def generate_overall_explanation(
         path_count=path_count
     )
     
-    # print("DEBUG prompt:", prompt)
+    print("DEBUG prompt:", prompt)
 
     result = generate_completion(
         prompt=prompt,
@@ -40,6 +40,7 @@ def generate_from_static_analysis(
     unreachable_code: List[Dict] = None
 ) -> Optional[str]:
     try:
+        print("Entered overall explanation")
         if not static_analysis:
             return None
         
@@ -50,13 +51,18 @@ def generate_from_static_analysis(
 
         # function_names = list(cfg_data.get("functions", {}).keys())
         functions = cfg_data.get("functions", [])
+        print("FUNCTIONS")
+        if not functions:
+            print("DEBUG: No functions found")
+            return None
+        
         function_names = [functions[0]["name"]] if isinstance(functions, list) else [list(functions.keys())[0]]
         # if isinstance(functions, list):
         #     function_names = [f["name"] for f in functions if "name" in f]
         # else:
         #     function_names = list(functions.keys())
 
-
+        print("func name:", function_names)
         functions_data = cfg_data.get("functions", {})
         if isinstance(functions_data, dict):
             first_func_data = list(functions_data.values())[0] if functions_data else {}
@@ -65,6 +71,7 @@ def generate_from_static_analysis(
 
         metrics = first_func_data.get("metrics", {})
         path_count = len(first_func_data.get("paths", []))
+        print("metrics:", metrics)
                 
         result = generate_overall_explanation(
             function_names,
@@ -75,8 +82,9 @@ def generate_from_static_analysis(
             path_count=path_count
         )
 
-        # print("DEBUG cfg_data keys:", cfg_data.keys())
-        # print("DEBUG functions:", cfg_data.get("functions", []))
+        print("DEBUG cfg_data keys:", cfg_data.keys())
+        print("DEBUG functions:", cfg_data.get("functions", []))
+        print("RESULT:", result)
         
         return result["explanation"] if not result["error"] else None
     

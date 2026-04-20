@@ -120,9 +120,9 @@ def suggest_refactoring(
     
     result = generate_completion(
         prompt=prompt,
-        max_tokens=500,  
+        max_tokens=520,  
         temperature=0.3,
-        thinking_budget=60      
+        thinking_budget=50      
     )
     
     if result["error"]:

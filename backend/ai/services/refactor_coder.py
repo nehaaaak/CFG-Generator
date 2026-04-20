@@ -147,9 +147,9 @@ def refactor_code(
 
     result = generate_completion(
         prompt=prompt,
-        max_tokens=660,
+        max_tokens=680,
         temperature=0.2,
-        thinking_budget=120
+        thinking_budget=100
     )
 
     if result["error"]:
@@ -223,9 +223,9 @@ def _generate_suggestions_silently(
         prompt = suggest_prompt(**context)
         result = generate_completion(
             prompt=prompt,
-            max_tokens=500,
+            max_tokens=520,
             temperature=0.3,
-            thinking_budget=60 
+            thinking_budget=50 
         )
 
         if result["error"] or not result["text"]:
