@@ -537,8 +537,6 @@ async def generate_cfg(
                 # ✅ STORE FOR ALL USERS
                 try:
                     ai_response = AIResponse(
-                        session_id=None,
-                        user_id=None,
                         feature_type="overall_explain",
                         input_hash=input_hash,
                         response_data={"explanation": overall_ai_explanation},
@@ -570,15 +568,13 @@ async def generate_cfg(
             error=None
         )
         
-    except HTTPException:
-        raise
+    # except HTTPException:
+    #     raise
     except Exception as e:
-        return CFGResponse(
-            success=False,
-            functions=[],
-            overall_cc=0,
-            error=f"Error: {str(e)}"
-        )
+        raise HTTPException(
+        status_code=500,
+        detail=f"Error: {str(e)}"
+    )
 
 
 @app.get("/api/cfg/history", response_model=List[SessionListItem])

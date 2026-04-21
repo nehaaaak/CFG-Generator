@@ -185,8 +185,6 @@ def refactor_code(
     # Store in cache
     try:
         ai_response = AIResponse(
-            session_id=None,
-            user_id=None,
             feature_type="refactor_code",
             input_hash=input_hash,
             response_data={
@@ -264,8 +262,6 @@ def _generate_suggestions_silently(
             input_hash = create_input_hash(cache_input)
 
             ai_response = AIResponse(
-                session_id=None,
-                user_id=None,
                 feature_type="refactor_suggest",
                 input_hash=input_hash,
                 response_data={"parsed_suggestions": parsed, "suggestions": suggestions_text},

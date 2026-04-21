@@ -81,12 +81,10 @@ class AIResponse(Base):
     )
     
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String(36), ForeignKey("cfg_sessions.session_id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # AI Response Data
-    feature_type = Column(String(50), nullable=False)  # node_explain, path_explain, etc.
-    input_hash = Column(String(64), nullable=False, index=True)  # Hash of input for caching
+    feature_type = Column(String(50), nullable=False)  
+    input_hash = Column(String(64), nullable=False, index=True)  
     response_data = Column(JSON, nullable=False)
     
     # Metadata

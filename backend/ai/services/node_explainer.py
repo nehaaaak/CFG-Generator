@@ -235,8 +235,6 @@ def explain_node(
     # Store in cache
     try:
         ai_response = AIResponse(
-            session_id=None,
-            user_id=None,
             feature_type="node_explain",
             input_hash=input_hash,
             response_data={"explanation": text},

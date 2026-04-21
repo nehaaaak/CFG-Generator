@@ -228,6 +228,7 @@ def update_ai_quota(user: User, feature_type: str, db: Session) -> None:
 def get_user_ai_quota(user: User) -> dict:
     """Get user's remaining AI quota for all features"""
     today = date.today()
+    next_reset = today + timedelta(days=1)
     
     # If reset date is past, all quotas are full
     if user.ai_requests_reset_date is None or user.ai_requests_reset_date < today:
@@ -237,7 +238,7 @@ def get_user_ai_quota(user: User) -> dict:
             "refactor_suggest_remaining": DAILY_LIMIT_PER_FEATURE,
             "refactor_code_remaining": DAILY_LIMIT_PER_FEATURE,
             # "test_gen_remaining": DAILY_LIMIT_PER_FEATURE,
-            "reset_date": str(today)
+            "reset_date": str(next_reset)
         }
     
     return {
@@ -246,7 +247,7 @@ def get_user_ai_quota(user: User) -> dict:
         "refactor_suggest_remaining": DAILY_LIMIT_PER_FEATURE - user.ai_refactor_suggest_used,
         "refactor_code_remaining": DAILY_LIMIT_PER_FEATURE - user.ai_refactor_code_used,
         # "test_gen_remaining": DAILY_LIMIT_PER_FEATURE - user.ai_test_gen_used,
-        "reset_date": str(user.ai_requests_reset_date)
+        "reset_date": str(next_reset)
     }
 
 

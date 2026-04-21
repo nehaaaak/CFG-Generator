@@ -150,8 +150,6 @@ def suggest_refactoring(
     # Store in cache
     try:
         ai_response = AIResponse(
-            session_id=None,
-            user_id=None,
             feature_type="refactor_suggest",
             input_hash=input_hash,
             # response_data={"suggestions": result["text"]},
