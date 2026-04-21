@@ -9,7 +9,7 @@ from ..client_wrapper import generate_completion
 from ..prompts.path_explain import build_prompt, extract_path_from_selection
 from ..utils import create_input_hash
 from ...db_models import CFGSession, AIResponse
-from ...dependencies import check_and_update_ai_quota
+from ...dependencies import check_ai_quota, update_ai_quota
 from fastapi import HTTPException
 
 
@@ -109,7 +109,7 @@ def explain_path(
     
     # Create cache key
     cache_input = {
-        "session_id": session_id,
+        "feature": "path_explain",
         "function": function_name,
         "path_nodes": tuple(path_node_ids)
     }
@@ -118,7 +118,6 @@ def explain_path(
     
     # Check cache
     cached = db.query(AIResponse).filter(
-        AIResponse.session_id == session_id,
         AIResponse.feature_type == "path_explain",
         AIResponse.input_hash == input_hash
     ).first()
@@ -132,7 +131,7 @@ def explain_path(
         }
     
     try:
-        check_and_update_ai_quota(user, "path_explain", db)
+        check_ai_quota(user, "path_explain", db)
     except HTTPException as e:
         return {
             "explanation": "",
@@ -168,11 +167,13 @@ def explain_path(
             "error": result["error"]
         }
     
+    update_ai_quota(user, "path_explain", db)
+
     # Store in cache
     try:
         ai_response = AIResponse(
-            session_id=session_id,
-            user_id=session.user_id,
+            session_id=None,
+            user_id=None,
             feature_type="path_explain",
             input_hash=input_hash,
             response_data={"explanation": text},

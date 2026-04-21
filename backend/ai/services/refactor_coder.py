@@ -9,9 +9,9 @@ from ..client_wrapper import generate_completion
 from ..prompts.refactor_code import build_prompt, prepare_refactor_input, parse_refactor_response
 from ..prompts.refactor_suggest import build_prompt as suggest_prompt, prepare_refactor_context
 from ..services.refactor_suggester import parse_refactor_suggestions
-from ..utils import create_input_hash
+from ..utils import create_input_hash, normalize_code
 from ...db_models import CFGSession, AIResponse
-from ...dependencies import check_and_update_ai_quota
+from ...dependencies import check_ai_quota, update_ai_quota
 from fastapi import HTTPException
 import ast
 import hashlib
@@ -50,28 +50,28 @@ def refactor_code(
     if not function_code:
         return _error_response("Could not extract function code")
 
-    code_hash = hashlib.sha256(function_code.encode()).hexdigest()
+    # code_hash = hashlib.sha256(function_code.encode()).hexdigest()
 
     # Check line limit
     code_lines = function_code.split('\n')
     if len(code_lines) > MAX_CODE_LINES:
         return _error_response(
-            f"Function exceeds {MAX_CODE_LINES} line limit for refactoring "
-            f"({len(code_lines)} lines). Please refactor manually or split the function first."
+            f"Function is too long to refactor automatically ({len(code_lines)} lines). "
+            f"Use AI Suggestions instead to identify what to improve manually."
         )
     
+    normalized_code = normalize_code(function_code)
     # Cache key
     cache_input = {
-        "session_id": session_id,
+        "feature": "refactor_code",
         "function": function_name,
         # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
-        "code_hash": code_hash
+        "code": normalized_code
     }
     input_hash = create_input_hash(cache_input)
 
     # Check cache
     cached = db.query(AIResponse).filter(
-        AIResponse.session_id == session_id,
         AIResponse.feature_type == "refactor_code",
         AIResponse.input_hash == input_hash
     ).first()
@@ -88,7 +88,7 @@ def refactor_code(
         }
 
     try:
-        check_and_update_ai_quota(user, "refactor_code", db)
+        check_ai_quota(user, "refactor_code", db)
     except HTTPException as e:
         return {
             "original_code": function_code,
@@ -104,15 +104,14 @@ def refactor_code(
     ai_suggestions: Optional[list] = None
     try:
         cache_input = {
-        "session_id": session_id,
+        "feature": "refactor_suggest",
         "function": function_name,
         # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
-        "code_hash": code_hash
+        "code": normalized_code
         }
         input_hash = create_input_hash(cache_input)
 
         cached_suggestion = db.query(AIResponse).filter(
-            AIResponse.session_id == session_id,
             AIResponse.feature_type == "refactor_suggest",
             AIResponse.input_hash == input_hash
         ).first()
@@ -126,7 +125,7 @@ def refactor_code(
     # If no cached suggestions, generate silently
     if ai_suggestions is None:
         ai_suggestions = _generate_suggestions_silently(
-            session_id, function_name, static_analysis, function_code, code_hash, session, db
+            session_id, function_name, static_analysis, function_code, normalized_code, session, db
         )
 
     if ai_suggestions is None:
@@ -153,7 +152,14 @@ def refactor_code(
     )
 
     if result["error"]:
-        return _error_response(result["error"])
+        return {
+        "original_code": function_code,
+        "refactored_code": function_code,
+        "changes": "Refactoring temporarily unavailable. Please try again.",
+        "tokens_used": 0,
+        "cached": False,
+        "error": result["error"]
+    }
 
     # Parse response
     parsed = parse_refactor_response(result["text"])
@@ -174,11 +180,13 @@ def refactor_code(
             "error": f"Generated code has syntax error: {str(e)}"
         }
 
+    update_ai_quota(user, "refactor_code", db)
+
     # Store in cache
     try:
         ai_response = AIResponse(
-            session_id=session_id,
-            user_id=session.user_id,
+            session_id=None,
+            user_id=None,
             feature_type="refactor_code",
             input_hash=input_hash,
             response_data={
@@ -208,7 +216,7 @@ def _generate_suggestions_silently(
     function_name: str,
     static_analysis: Dict,
     function_code: str,
-    code_hash: str,
+    normalized_code: str,
     session,
     db: Session
 ) -> Optional[List[Dict]]:
@@ -231,24 +239,36 @@ def _generate_suggestions_silently(
         if result["error"] or not result["text"]:
             return None
 
-        parsed = parse_refactor_suggestions(result["text"])
+        try:
+            parsed = parse_refactor_suggestions(result["text"])
+            if not parsed:
+                raise ValueError("Empty parsed suggestions")
+        except Exception:
+            parsed = []
+
+        suggestions_text = result.get("text", "").strip()
+
+        if not suggestions_text:
+            suggestions_text = "No refactoring suggestions generated."
+
+        # parsed = parse_refactor_suggestions(result["text"])
 
         # Cache it
         try:
             cache_input = {
-                "session_id": session_id,
+                "feature": "refactor_suggest",
                 "function": function_name,
                 # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
-                "code_hash": code_hash
+                "code": normalized_code
             }
             input_hash = create_input_hash(cache_input)
 
             ai_response = AIResponse(
-                session_id=session_id,
-                user_id=session.user_id,
+                session_id=None,
+                user_id=None,
                 feature_type="refactor_suggest",
                 input_hash=input_hash,
-                response_data={"suggestions": result["text"], "parsed_suggestions": parsed},
+                response_data={"parsed_suggestions": parsed, "suggestions": suggestions_text},
                 tokens_used=result["tokens_used"],
                 model_used="gemini-2.5-flash"
             )

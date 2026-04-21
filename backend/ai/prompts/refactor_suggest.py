@@ -15,6 +15,58 @@ from typing import Dict, List, Optional
 import re
 
 
+def extract_relevant_lines(code: str, code_smells: List[Dict], hotspots: List[Dict], max_lines: int = 25) -> str:
+    """
+    Extract lines most relevant to detected issues.
+    Falls back to first max_lines if no line info available.
+    """
+    lines = code.split('\n')
+    
+    if len(lines) <= max_lines:
+        return code
+    
+    # Collect issue line numbers
+    issue_lines = set()
+    for issue in code_smells + hotspots:
+        line = issue.get("line")
+        if line:
+            # Add line and context (2 lines before and after)
+            for l in range(max(0, line - 3), min(len(lines), line + 3)):
+                issue_lines.add(l)
+    
+    # Always include function signature (first 2 lines)
+    for l in range(min(2, len(lines))):
+        issue_lines.add(l)
+
+    if not issue_lines or len(issue_lines) < 5:
+        # No line info in issues — fall back to first max_lines
+        truncated = '\n'.join(lines[:max_lines])
+        return truncated + f"\n# ... ({len(lines) - max_lines} more lines not shown)"
+
+    # Build relevant snippet
+    sorted_lines = sorted(issue_lines)
+    result = []
+    prev = -1
+    for ln in sorted_lines:
+        if prev != -1 and ln > prev + 1:
+            result.append("# ...")
+        result.append(lines[ln])
+        prev = ln
+
+    # If still under max_lines budget, fill with beginning of function
+    if len(result) < max_lines:
+        remaining = max_lines - len(result)
+        for l in range(min(remaining, len(lines))):
+            if l not in issue_lines:
+                result.insert(l, lines[l])
+
+    total = len('\n'.join(result).split('\n'))
+    if len(lines) > max_lines:
+        result.append(f"# ... ({len(lines) - total} more lines not shown)")
+
+    return '\n'.join(result)
+
+
 def build_prompt(
     function_name: str,
     code_snippet: str,
@@ -40,10 +92,12 @@ def build_prompt(
     # key_variables = variables[:5]
 
     # Truncate code if too long (save tokens)
-    max_lines = 50
-    code_lines = code_snippet.split('\n')
-    if len(code_lines) > max_lines:
-        code_snippet = '\n'.join(code_lines[:max_lines]) + f"\n... ({len(code_lines) - max_lines} more lines)"
+    # max_lines = 50
+    # code_lines = code_snippet.split('\n')
+    # if len(code_lines) > max_lines:
+    #     code_snippet = '\n'.join(code_lines[:max_lines]) + f"\n... ({len(code_lines) - max_lines} more lines)"
+
+    code_snippet = extract_relevant_lines(code_snippet, code_smells, hotspots, max_lines=25)
     
     # Build prompt
     prompt = f"""You are an expert Python refactoring assistant focused on improving control flow, readability,

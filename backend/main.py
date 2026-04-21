@@ -451,53 +451,104 @@ async def generate_cfg(
             db.refresh(session)
 
         overall_ai_explanation = None
+        # try:
+        #     cache_input = {
+        #         "code": code,
+        #         "feature": "overall_explain"
+        #     }
+        #     input_hash = create_input_hash(cache_input)
+
+        #     # ✅ Logged-in users → cache
+        #     if current_user and session:
+        #         cached = db.query(AIResponse).filter(
+        #             AIResponse.session_id == session.session_id,
+        #             AIResponse.feature_type == "overall_explain",
+        #             AIResponse.input_hash == input_hash
+        #         ).first()
+
+        #         if cached:
+        #             overall_ai_explanation = cached.response_data.get("explanation", "")
+        #         else:
+        #             overall_ai_explanation = generate_overall_explanation_ai(
+        #                 result,
+        #                 static_analysis_results,
+        #                 all_unreachable
+        #             )
+
+        #             # store in cache
+        #             try:
+        #                 ai_response = AIResponse(
+        #                     session_id=session.session_id,
+        #                     user_id=current_user.id,
+        #                     feature_type="overall_explain",
+        #                     input_hash=input_hash,
+        #                     response_data={"explanation": overall_ai_explanation},
+        #                     tokens_used=None,
+        #                     model_used="gemini-2.5-flash"
+        #                 )
+        #                 db.add(ai_response)
+        #                 db.commit()
+        #             except Exception as e:
+        #                 print("Cache save error:", e)
+
+        #     # ✅ Non-logged-in users → no cache
+        #     else:
+        #         overall_ai_explanation = generate_overall_explanation_ai(
+        #             result,
+        #             static_analysis_results,
+        #             all_unreachable
+        #         )
         try:
-            cache_input = {
-                "code": code,
-                "feature": "overall_explain"
-            }
+            functions_data = result.get("functions", {})
+
+            if not functions_data:
+                overall_ai_explanation = None
+            else:
+                if isinstance(functions_data, dict):
+                    func_name, first_func = next(iter(functions_data.items()))
+                else:
+                    first_func = functions_data[0]
+                    func_name = first_func.get("name")
+
+                cache_input = {
+                    "feature": "overall_explain",
+                    "metrics": first_func.get("metrics", {}),
+                    "paths": first_func.get("paths", []),
+                    "function_name": func_name
+                }
+
             input_hash = create_input_hash(cache_input)
 
-            # ✅ Logged-in users → cache
-            if current_user and session:
-                cached = db.query(AIResponse).filter(
-                    AIResponse.session_id == session.session_id,
-                    AIResponse.feature_type == "overall_explain",
-                    AIResponse.input_hash == input_hash
-                ).first()
+            # ✅ GLOBAL CACHE CHECK (no session/user)
+            cached = db.query(AIResponse).filter(
+                AIResponse.feature_type == "overall_explain",
+                AIResponse.input_hash == input_hash
+            ).first()
 
-                if cached:
-                    overall_ai_explanation = cached.response_data.get("explanation", "")
-                else:
-                    overall_ai_explanation = generate_overall_explanation_ai(
-                        result,
-                        static_analysis_results,
-                        all_unreachable
-                    )
-
-                    # store in cache
-                    try:
-                        ai_response = AIResponse(
-                            session_id=session.session_id,
-                            user_id=current_user.id,
-                            feature_type="overall_explain",
-                            input_hash=input_hash,
-                            response_data={"explanation": overall_ai_explanation},
-                            tokens_used=None,
-                            model_used="gemini-2.5-flash"
-                        )
-                        db.add(ai_response)
-                        db.commit()
-                    except Exception as e:
-                        print("Cache save error:", e)
-
-            # ✅ Non-logged-in users → no cache
+            if cached:
+                overall_ai_explanation = cached.response_data.get("explanation", "")
             else:
                 overall_ai_explanation = generate_overall_explanation_ai(
                     result,
                     static_analysis_results,
                     all_unreachable
                 )
+
+                # ✅ STORE FOR ALL USERS
+                try:
+                    ai_response = AIResponse(
+                        session_id=None,
+                        user_id=None,
+                        feature_type="overall_explain",
+                        input_hash=input_hash,
+                        response_data={"explanation": overall_ai_explanation},
+                        tokens_used=None,
+                        model_used="gemini-2.5-flash"
+                    )
+                    db.add(ai_response)
+                    db.commit()
+                except Exception as e:
+                    print("Cache save error:", e)
 
         except Exception as e:
             print(f"AI explanation error: {e}")
@@ -741,14 +792,16 @@ async def refactor_suggest(
         db=db
     )
 
-    if result.get("error"):
-        return AIRefactorSuggestResponse(
-            parsed_suggestions=[],
-            suggestions=result.get("suggestions", ""),
-            tokens_used=result.get("tokens_used", 0),
-            cached=result.get("cached", False),
-            error=result["error"]
-        )
+    # if result.get("error"):
+    #     return AIRefactorSuggestResponse(
+    #         parsed_suggestions=[],
+    #         suggestions=result.get("suggestions", ""),
+    #         tokens_used=result.get("tokens_used", 0),
+    #         cached=result.get("cached", False),
+    #         error=result["error"]
+    #     )
+    if result["error"]:
+        raise HTTPException(status_code=400, detail=result["error"])
     
     return AIRefactorSuggestResponse(
         parsed_suggestions=result.get("parsed_suggestions", []),

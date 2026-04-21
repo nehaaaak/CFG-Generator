@@ -86,8 +86,11 @@ def generate_from_static_analysis(
         print("DEBUG functions:", cfg_data.get("functions", []))
         print("RESULT:", result)
         
-        return result["explanation"] if not result["error"] else None
-    
+        # return result["explanation"] if not result["error"] else None
+        if result["error"]:
+            return f"AI explanation temporarily unavailable ({result['error'][:50]}...). Please try again."
+
+        return result["explanation"] 
     except Exception as e:
         print("AI overall explanation failed:", str(e))
         return None

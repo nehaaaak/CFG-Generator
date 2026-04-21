@@ -62,9 +62,9 @@ def build_prompt(
     decisions = metrics.get("decision_points", 0)   
 
     # Truncate code to 30 lines
-    code_lines = original_code.split('\n')
-    if len(code_lines) > 30:
-        original_code = '\n'.join(code_lines[:30]) + f"\n# ... ({len(code_lines) - 30} more lines)"
+    # code_lines = original_code.split('\n')
+    # if len(code_lines) > 30:
+    #     original_code = '\n'.join(code_lines[:30]) + f"\n# ... ({len(code_lines) - 30} more lines)"
     
     # Format issues concisely
     issue_summary = ""

@@ -59,3 +59,7 @@ def format_top_issues(smells: List[Dict], limit: int = 3) -> str:
         lines.append(f"- {smell_type}: {message}")
     
     return "\n".join(lines)
+
+
+def normalize_code(code: str) -> str:
+    return "\n".join(line.strip() for line in code.strip().splitlines())

@@ -1,7 +1,9 @@
 from google import genai 
 from google.genai import types
 import os
+import time
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -28,65 +30,84 @@ def generate_completion(
             "error": "No API key"
         }
     
-    try:
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=max_tokens,
-                temperature=temperature,
-                thinking_config=types.ThinkingConfig(
-                    thinking_budget=thinking_budget
-                )
-            ),
-        )
+    MAX_RETRIES = 2   
+    BASE_DELAY = 1.5
 
-        print("DEBUG raw response:", response)
-
-        # Truncation guard
-        candidate = response.candidates[0]
-        if candidate.finish_reason.name == "MAX_TOKENS":
-            print(f"WARNING: Response was truncated at max_tokens limit ({max_tokens})")
-        
-        tokens_used = 0
+    for attempt in range(MAX_RETRIES + 1):
         try:
-            if hasattr(response, 'usage_metadata'):
-                tokens_used = (
-                    response.usage_metadata.prompt_token_count +
-                    response.usage_metadata.candidates_token_count
-                )
-        except:
-            tokens_used = response.usage_metadata.total_token_count
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_budget=thinking_budget
+                    )
+                ),
+            )
 
-        text = ""
-        if hasattr(response, "text") and response.text:
-            text = response.text.strip()
-        elif response.candidates:
-            # text = response.candidates[0].content.parts[0].text.strip()
-            parts = response.candidates[0].content.parts
-            text = "".join(
-                part.text for part in parts if hasattr(part, "text") and part.text
-            ).strip()
+            print("DEBUG raw response:", response)
 
-        if not text or len(text) < 10:
+            # Truncation guard
+            candidate = response.candidates[0]
+            if candidate.finish_reason.name == "MAX_TOKENS":
+                print(f"WARNING: Response was truncated at max_tokens limit ({max_tokens})")
+            
+            tokens_used = 0
+            try:
+                if hasattr(response, 'usage_metadata'):
+                    tokens_used = (
+                        response.usage_metadata.prompt_token_count +
+                        response.usage_metadata.candidates_token_count
+                    )
+            except:
+                # tokens_used = response.usage_metadata.total_token_count
+                tokens_used = getattr(response.usage_metadata, "total_token_count", 0)
+
+            text = ""
+            if hasattr(response, "text") and response.text:
+                text = response.text.strip()
+            elif response.candidates:
+                # text = response.candidates[0].content.parts[0].text.strip()
+                parts = response.candidates[0].content.parts
+                text = "".join(
+                    part.text for part in parts if hasattr(part, "text") and part.text
+                ).strip()
+
+            if not text or len(text) < 10:
+                return {
+                    "text": "",
+                    "tokens_used": tokens_used,
+                    "error": "Empty or incomplete response from AI"
+                }
+            
             return {
-                "text": "",
+                "text": text,
                 "tokens_used": tokens_used,
-                "error": "Empty or incomplete response from AI"
+                "error": None
             }
         
-        return {
-            "text": text,
-            "tokens_used": tokens_used,
-            "error": None
-        }
-    
-    except Exception as e:
-        return {
-            "text": f"Error: {str(e)}",
-            "tokens_used": 0,
-            "error": str(e)
-        }
+        except Exception as e:
+            error_msg = str(e)
+
+            if "503" in error_msg or "UNAVAILABLE" in error_msg:
+                if attempt < MAX_RETRIES:
+                    delay = BASE_DELAY * (2 ** attempt)
+                    print(f"DEBUG: Retry {attempt+1} after {delay}s due to 503...")
+                    time.sleep(delay)
+                    continue
+            return {
+                "text": "",
+                "tokens_used": 0,
+                "error": error_msg
+            }
+        
+    return {
+        "text": "",
+        "tokens_used": 0,
+        "error": "Unknown error"
+    }
 
 
 def is_available() -> bool:

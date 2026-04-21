@@ -7,9 +7,9 @@ from typing import Dict, Optional
 from sqlalchemy.orm import Session
 from ..client_wrapper import generate_completion
 from ..prompts.refactor_suggest import build_prompt, prepare_refactor_context
-from ..utils import create_input_hash
+from ..utils import create_input_hash, normalize_code
 from ...db_models import CFGSession, AIResponse
-from ...dependencies import check_and_update_ai_quota
+from ...dependencies import check_ai_quota, update_ai_quota
 from fastapi import HTTPException
 import ast
 import hashlib
@@ -76,18 +76,18 @@ def suggest_refactoring(
         function_code
     )
     
+    normalized_code = normalize_code(function_code)
     # Create cache key
     cache_input = {
-        "session_id": session_id,
+        "feature": "refactor_suggest",
         "function": function_name,
-        # "code_hash": hash(function_code)
-        "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
+        # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
+        "code": normalized_code
     }
     input_hash = create_input_hash(cache_input)
     
     # Check cache
     cached = db.query(AIResponse).filter(
-        AIResponse.session_id == session_id,
         AIResponse.feature_type == "refactor_suggest",
         AIResponse.input_hash == input_hash
     ).first()
@@ -102,7 +102,7 @@ def suggest_refactoring(
         }
     
     try:
-        check_and_update_ai_quota(user, "refactor_suggest", db)
+        check_ai_quota(user, "refactor_suggest", db)
     except HTTPException as e:
         return {
             # "explanation": "",
@@ -145,11 +145,13 @@ def suggest_refactoring(
     if not suggestions_text:
         suggestions_text = "No refactoring suggestions generated."
 
+    update_ai_quota(user, "refactor_suggest", db)
+
     # Store in cache
     try:
         ai_response = AIResponse(
-            session_id=session_id,
-            user_id=session.user_id,
+            session_id=None,
+            user_id=None,
             feature_type="refactor_suggest",
             input_hash=input_hash,
             # response_data={"suggestions": result["text"]},
