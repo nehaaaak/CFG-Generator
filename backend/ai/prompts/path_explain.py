@@ -6,8 +6,6 @@ Explains an execution path through the CFG by:
 2. Decision points and conditions taken
 3. Execution scenario (what inputs trigger this path)
 4. Outcome (what happens at the end)
-
-Optimized for free tier - structured, concise, high-value context.
 """
 
 from typing import Dict, List
@@ -202,17 +200,17 @@ Decision Points: {path_metrics['decisions']}
     # Output instructions
     prompt += """
 STRICT RULES:
-- Do not assume specific inputs
-- Describe behavior only from the given path and decisions
+- Do not assume inputs
+- Describe behavior only from the given execution path and decisions
 - Do not infer conditions not explicitly shown
-- Explain only what the path guarantees, not what inputs might cause it
+- Explain only what the path guarantees
 
 OUTPUT INSTRUCTIONS:
-Explain in 3–4 concise sentences based strictly on the given execution path:
+Explain in 3–4 concise sentences:
 - Mention what kind of execution path this represents(e.g., early return, loop iteration, normal completion)
-- What execution scenario this path represents based on control flow (e.g., condition never satisfied, loop completes without match)
+- What execution scenario this path represents (e.g., condition never satisfied, loop completes without match)
 - How execution proceeds through key decisions. Example: "the first condition (score >= 90) evaluates to true"
-- What the final outcome is(what gets returned or executed). Example: "returns grade 'A' and exits the function"
+- What the final outcome is(what gets returned or executed)
 
 Reference actual code/conditions in parentheses. Explain in terms of execution flow, not just code.
 Start naturally ("This path...", "When execution...", "Along this path...")."""

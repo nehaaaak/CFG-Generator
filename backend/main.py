@@ -441,7 +441,8 @@ async def generate_cfg(
                 cfg_data=result,
                 static_analysis=static_analysis_results,
                 overall_explanation=None,  # will update after AI call
-                name=input_data.name,
+                # name=input_data.name,
+                name=None,
                 description=input_data.description,
                 overall_cc=overall_cc,
                 function_count=len(function_cfgs)
@@ -517,9 +518,17 @@ async def generate_cfg(
                     "function_name": func_name
                 }
 
+            if not func_name:
+                auto_name = "Code Session"
+
+            auto_name = func_name
+            words = auto_name.replace("_", " ").split()
+            formatted = " ".join(w.capitalize() for w in words)
+            formatted_name = formatted + " " + "Function"
+
             input_hash = create_input_hash(cache_input)
 
-            # ✅ GLOBAL CACHE CHECK (no session/user)
+            # GLOBAL CACHE CHECK (no session/user)
             cached = db.query(AIResponse).filter(
                 AIResponse.feature_type == "overall_explain",
                 AIResponse.input_hash == input_hash
@@ -534,7 +543,7 @@ async def generate_cfg(
                     all_unreachable
                 )
 
-                # ✅ STORE FOR ALL USERS
+                # STORE FOR ALL USERS
                 try:
                     ai_response = AIResponse(
                         feature_type="overall_explain",
@@ -554,6 +563,7 @@ async def generate_cfg(
 
         if session:
             session.overall_explanation = overall_ai_explanation
+            session.name = input_data.name or formatted_name
             db.commit()
 
         session_id_to_return = session.session_id if session else None
@@ -719,8 +729,8 @@ async def explain_node(
         db=db
     )
     
-    if result.get("error"):
-        raise HTTPException(status_code=400, detail=result["error"])
+    # if result.get("error"):
+    #     raise HTTPException(status_code=400, detail=result["error"])
     
     return AINodeExplainResponse(
         explanation=result["explanation"],
@@ -754,8 +764,8 @@ async def explain_path(
         db=db
     )
     
-    if result.get("error"):
-        raise HTTPException(status_code=400, detail=result["error"])
+    # if result.get("error"):
+    #     raise HTTPException(status_code=400, detail=result["error"])
 
     return AIPathExplainResponse(
         explanation=result["explanation"],
@@ -796,8 +806,8 @@ async def refactor_suggest(
     #         cached=result.get("cached", False),
     #         error=result["error"]
     #     )
-    if result["error"]:
-        raise HTTPException(status_code=400, detail=result["error"])
+    # if result["error"]:
+    #     raise HTTPException(status_code=400, detail=result["error"])
     
     return AIRefactorSuggestResponse(
         parsed_suggestions=result.get("parsed_suggestions", []),
@@ -825,8 +835,8 @@ async def refactor_code_endpoint(
         function_name=request.function_name,
         db=db
     )
-    if result.get("error"):
-        raise HTTPException(status_code=400, detail=result["error"])
+    # if result.get("error"):
+    #     raise HTTPException(status_code=400, detail=result["error"])
     
     return AIRefactorCodeResponse(**result)
 

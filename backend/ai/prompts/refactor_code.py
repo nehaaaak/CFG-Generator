@@ -72,7 +72,7 @@ def build_prompt(
         critical = [i for i in issues if i.get("severity") in ["critical", "high"]]
         if critical:
             issue_summary = "Key Issues:\n"
-            for issue in critical[:3]:
+            for issue in critical[:2]:
                 issue_summary += f"  • {issue.get('type', 'unknown')}: {issue.get('message', '')}\n"
     
     # Build prompt
@@ -86,9 +86,7 @@ ORIGINAL CODE:
 ```
 
 METRICS:
-• Cyclomatic Complexity: {cc}
-• Max Nesting Depth: {nesting}
-• Decision Points: {decisions}
+Cyclomatic Complexity: {cc}, Max Nesting Depth: {nesting}, Decision Points: {decisions}
 
 {issue_summary}
 """
@@ -101,30 +99,27 @@ METRICS:
 
     if suggestions:
         prompt += "\nRefactoring Hints:\n"
-        for s in suggestions[:3]:
-            prompt += f"- {s['title']}: {s['description']}\n"
+        # for s in suggestions[:3]:
+        #     prompt += f"- {s['title']}: {s['description']}\n"
+        compressed_suggestions = compress_suggestions(suggestions)
+        prompt += f"{compressed_suggestions}\n"
 
     # Refactoring instructions
     prompt += f"""
 REFACTORING REQUIREMENTS:
-Apply these improvements (prioritize in order):
+Apply these improvements wherever applicable:
 
-1. Reduce nesting using guard clauses / early returns  
-2. Break large functions into smaller ones (extract helper functions for complex logic)  
-3. Simplify conditionals and control flow 
-4. Use Pythonic constructs where safe (comprehensions, enumerate, etc.)  
-5. Replace magic values with named constants  
-6. Remove dead or unused code 
-7. Remove duplicated logic, if there is any
+- Reduce nesting using guard clauses / early returns   
+- Simplify conditionals and control flow 
+- Remove unused or duplicate code  
+- Use Pythonic constructs where safe (comprehensions, enumerate, etc.)  
+- Extract helpers only if there are clearly independent logical sections and CFG remains meaningful
 
 CONSTRAINTS:
 ✓ PRESERVE exact behavior — same inputs must produce same outputs
-✓ Keep function signature identical
-✓ No new imports unless essential  
-✓ Do not make changes that could alter behavior
-✓ Do not introduce new logic branches or remove existing ones
-✓ Preserve execution order and decision logic exactly 
-✓ Do not modify condition expressions or their evaluation order 
+✓ Keep function signature identical  
+✓ Do not add/remove logic branches
+✓ Avoid changes that trivialize the main function’s CFG
 
 OUTPUT FORMAT: Provide your response in this EXACT structure:
 
@@ -134,7 +129,7 @@ REFACTORED CODE:
 ```
 
 CHANGES MADE:
-[describe changes and improvement made by them in 2-4 concise sentences]
+[describe changes and improvement made by them in 2-3 concise lines]
 
 Begin refactoring:"""
     
@@ -212,12 +207,31 @@ def prepare_refactor_input(
     }
 
 
+def compress_suggestions(parsed_suggestions):
+    compressed = []
+
+    for s in parsed_suggestions:
+        title = s.get("title", "")
+        compressed.append(f"- {title}")
+
+    return "\n".join(compressed)    
 
 
 
 
 
 
+
+
+# # Only keep key idea (title-based compression)
+        # if "Extract" in title:
+        #     compressed.append("- Extract helper function")
+        # elif "Simplify" in title:
+        #     compressed.append("- Simplify nested conditionals")
+        # elif "Remove" in title:
+        #     compressed.append("- Remove unused variable")
+        # else:
+            # compressed.append(f"- {title}")
 
 
 # DO NOT:
@@ -261,3 +275,8 @@ def prepare_refactor_input(
 # 6. REMOVE DEAD CODE
 #    • Remove unreachable statements
 #    • Remove unused variables
+
+
+# ✓ Do not modify condition expressions or their evaluation order 
+# ✓ Preserve execution order and decision logic exactly 
+# ✓ No new imports unless essential

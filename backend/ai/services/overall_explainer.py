@@ -88,7 +88,7 @@ def generate_from_static_analysis(
         
         # return result["explanation"] if not result["error"] else None
         if result["error"]:
-            return f"AI explanation temporarily unavailable ({result['error'][:50]}...). Please try again."
+            return f"AI explanation temporarily unavailable. Please try again."
 
         return result["explanation"] 
     except Exception as e:

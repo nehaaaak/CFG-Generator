@@ -697,7 +697,7 @@ class ComplexityHotspotDetector:
         hotspots = []
         loop_count = self.cfg.count_loops()
         
-        if loop_count > 2:
+        if loop_count > 3:
             hotspots.append({
                 "type": "many_loops",
                 "severity": "medium",
@@ -881,7 +881,7 @@ def generate_refactoring_suggestions(cfg: CFG, smells: List[Dict], hotspots: Lis
         })
     
     # Many loops
-    if cfg.count_loops() > 2:
+    if cfg.count_loops() > 3:
         suggestions.append({
             "priority": "medium",
             "refactoring": "Extract Loop Bodies",

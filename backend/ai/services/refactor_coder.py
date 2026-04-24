@@ -146,20 +146,42 @@ def refactor_code(
 
     result = generate_completion(
         prompt=prompt,
-        max_tokens=680,
+        max_tokens=600,
         temperature=0.2,
-        thinking_budget=100
+        thinking_budget=80
     )
 
-    if result["error"]:
+    # if result["error"]:
+    #     return {
+    #     "original_code": function_code,
+    #     "refactored_code": function_code,
+    #     "changes": "Refactoring temporarily unavailable. Please try again.",
+    #     "tokens_used": 0,
+    #     "cached": False,
+    #     "error": result["error"]
+    # }
+    error_msg = result["error"]
+
+    if error_msg:
+        lower_error = error_msg.lower()
+
+        if "503" in error_msg or "unavailable" in lower_error:
+            user_error = "AI service is temporarily unavailable. Please try again in a moment."
+        elif "rate" in lower_error or "quota" in lower_error:
+            user_error = "AI service rate limit reached. Please try again later."
+        elif "daily limit" in lower_error:
+            user_error = error_msg  
+        else:
+            user_error = "AI processing failed. Please try again."
+
         return {
-        "original_code": function_code,
-        "refactored_code": function_code,
-        "changes": "Refactoring temporarily unavailable. Please try again.",
-        "tokens_used": 0,
-        "cached": False,
-        "error": result["error"]
-    }
+            "original_code": function_code,
+            "refactored_code": function_code,
+            "changes": "",
+            "tokens_used": result.get("tokens_used", 0),
+            "cached": False,
+            "error": user_error
+        }
 
     # Parse response
     parsed = parse_refactor_response(result["text"])
@@ -229,7 +251,7 @@ def _generate_suggestions_silently(
         prompt = suggest_prompt(**context)
         result = generate_completion(
             prompt=prompt,
-            max_tokens=520,
+            max_tokens=500,
             temperature=0.3,
             thinking_budget=50 
         )

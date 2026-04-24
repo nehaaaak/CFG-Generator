@@ -141,8 +141,8 @@ Code:
     prompt += """
 STRICT RULES:
 - Use only the given CFG structure (predecessors, successors, paths)
-- Do not assume or add missing flow
-- Follow the provided execution order exactly
+- Do not assume or add any missing flow
+- Follow the exact execution order provided
 
 OUTPUT INSTRUCTIONS:
 Explain this block in 2–3 concise sentences based strictly on the given CFG flow.
@@ -159,80 +159,6 @@ Start naturally ("Block B{block_id}...", "This block...", "When execution reache
     # return prompt
     return prompt
 
-
-# 4. ROLE: This block's role in the overall flow
-#     - Is it a critical decision point, loop guard, return path, etc.
-
-# def detect_loop_context(node, cfg_nodes, cfg_edges):
-#     """
-#     Detect loop context for a node:
-#     - loop_header
-#     - loop_body
-#     - loop_exit
-#     """
-
-#     node_id = node["id"]
-
-#     # Build adjacency map
-#     successors = {}
-#     for edge in cfg_edges:
-#         src = edge["from_node"]
-#         dst = edge["to_node"]
-#         successors.setdefault(src, []).append(dst)
-
-#     # Detect back edges using DFS
-#     visited = set()
-#     stack = set()
-#     back_edges = []
-
-#     def dfs(n):
-#         visited.add(n)
-#         stack.add(n)
-
-#         for succ in successors.get(n, []):
-#             if succ not in visited:
-#                 dfs(succ)
-#             elif succ in stack:
-#                 back_edges.append((n, succ))
-
-#         stack.remove(n)
-
-#     if successors:
-#         dfs(list(successors.keys())[0])
-
-#     # Identify loop structures
-#     for src, dst in back_edges:
-
-#         # dst = loop header
-#         header_node = next((n for n in cfg_nodes if n["id"] == dst), None)
-
-#         if node_id == dst:
-#             return {
-#                 "is_in_loop": True,
-#                 "loop_header": f"B{header_node.get('block_number')}",
-#                 "loop_role": "loop_header",
-#                 "loop_type": "loop"
-#             }
-
-#         if node_id == src:
-#             return {
-#                 "is_in_loop": True,
-#                 "loop_header": f"B{header_node.get('block_number')}",
-#                 "loop_role": "loop_back_edge",
-#                 "loop_type": "loop"
-#             }
-
-#     # Detect loop body nodes
-#     for src, dst in back_edges:
-#         if node_id != dst:
-#             return {
-#                 "is_in_loop": True,
-#                 "loop_header": f"B{dst}",
-#                 "loop_role": "loop_body",
-#                 "loop_type": "loop"
-#             }
-
-#     return None
 
 def detect_loop_context(node, cfg_nodes, cfg_edges):
     """
@@ -421,6 +347,86 @@ def format_node_context_for_prompt(
     }   
 
 
+
+
+
+
+
+
+
+# 4. ROLE: This block's role in the overall flow
+#     - Is it a critical decision point, loop guard, return path, etc.
+
+# def detect_loop_context(node, cfg_nodes, cfg_edges):
+#     """
+#     Detect loop context for a node:
+#     - loop_header
+#     - loop_body
+#     - loop_exit
+#     """
+
+#     node_id = node["id"]
+
+#     # Build adjacency map
+#     successors = {}
+#     for edge in cfg_edges:
+#         src = edge["from_node"]
+#         dst = edge["to_node"]
+#         successors.setdefault(src, []).append(dst)
+
+#     # Detect back edges using DFS
+#     visited = set()
+#     stack = set()
+#     back_edges = []
+
+#     def dfs(n):
+#         visited.add(n)
+#         stack.add(n)
+
+#         for succ in successors.get(n, []):
+#             if succ not in visited:
+#                 dfs(succ)
+#             elif succ in stack:
+#                 back_edges.append((n, succ))
+
+#         stack.remove(n)
+
+#     if successors:
+#         dfs(list(successors.keys())[0])
+
+#     # Identify loop structures
+#     for src, dst in back_edges:
+
+#         # dst = loop header
+#         header_node = next((n for n in cfg_nodes if n["id"] == dst), None)
+
+#         if node_id == dst:
+#             return {
+#                 "is_in_loop": True,
+#                 "loop_header": f"B{header_node.get('block_number')}",
+#                 "loop_role": "loop_header",
+#                 "loop_type": "loop"
+#             }
+
+#         if node_id == src:
+#             return {
+#                 "is_in_loop": True,
+#                 "loop_header": f"B{header_node.get('block_number')}",
+#                 "loop_role": "loop_back_edge",
+#                 "loop_type": "loop"
+#             }
+
+#     # Detect loop body nodes
+#     for src, dst in back_edges:
+#         if node_id != dst:
+#             return {
+#                 "is_in_loop": True,
+#                 "loop_header": f"B{dst}",
+#                 "loop_role": "loop_body",
+#                 "loop_type": "loop"
+#             }
+
+#     return None
 
 
 # Provide a clear 2-3 concise sentence explanation covering:

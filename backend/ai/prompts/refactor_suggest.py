@@ -111,11 +111,7 @@ CODE:
 ```
 
 CFG ANALYSIS:
-  • Cyclomatic Complexity: {cc} ({category})
-  • Decision Points: {decisions}
-  • Loops: {loops}
-  • Max Nesting Depth: {nesting}
-  • Execution Paths: {cfg_structure.get('paths', 'N/A')}
+Cyclomatic Complexity: {cc}({category}), Decision points: {decisions}, Loops: {loops}, Max Nesting Depth: {nesting}
 """
     
     # prompt += "Key Variables:\n"
@@ -144,7 +140,7 @@ CFG ANALYSIS:
         # prompt += "\n"
 
         prompt += "\nISSUES:\n"
-        for s in (critical[:2] + high[:2] + medium[:1]):
+        for s in (critical[:2] + high[:1] + medium[:1]):
             prompt += f"- {s.get('type')}: {s.get('message')}\n"
     
     # Add hotspots
@@ -178,15 +174,14 @@ CFG ANALYSIS:
     # Output instructions
     prompt += """
 Rules:
-- Be specific to this code
-- Focus on structural improvements (extract method, reduce nesting, simplify flow)
+- Be specific to this code. Preserve program logic and behavior
+- Focus on structural improvements (reduce nesting, simplify control flow)
 - Estimate impact where possible (e.g., "reduces CC from 12 to 7")
-- Do not suggest changes that alter program logic or behavior
 - Avoid generic or stylistic advice
-- Keep each suggestion short and actionable. Limit each suggestion to 60–80 words
+- Keep each suggestion short (60-80 words) and actionable
     
 OUTPUT INSTRUCTIONS:
-Provide 3-4 prioritized refactoring suggestions.
+Provide 2-3 prioritized refactoring suggestions.
 
 FORMAT:
 1. [Refactoring Name]  
@@ -305,3 +300,17 @@ def prepare_refactor_context(
 # ✗ Suggestions that don't address detected issues
 
 # Start with "PRIORITY 1" directly. No intro or label needed.
+
+
+
+
+
+
+
+
+# CFG ANALYSIS:
+#   • Cyclomatic Complexity: {cc} ({category})
+#   • Decision Points: {decisions}
+#   • Loops: {loops}
+#   • Max Nesting Depth: {nesting}
+#   • Execution Paths: {cfg_structure.get('paths', 'N/A')}

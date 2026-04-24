@@ -120,19 +120,42 @@ def suggest_refactoring(
     
     result = generate_completion(
         prompt=prompt,
-        max_tokens=520,  
+        max_tokens=500,  
         temperature=0.3,
         thinking_budget=50      
     )
     
-    if result["error"]:
+    # if result["error"]:
+    #     return {
+    #         "parsed_suggestions": [],
+    #         "suggestions": result.get("text", ""),
+    #         "tokens_used": result.get("tokens_used", 0),
+    #         "cached": False,
+    #         "error": result["error"]
+    #     }
+
+    error_msg = result["error"]
+
+    if error_msg:
+        lower_error = error_msg.lower()
+
+        if "503" in error_msg or "unavailable" in lower_error:
+            user_error = "AI service is temporarily unavailable. Please try again in a moment."
+        elif "rate" in lower_error or "quota" in lower_error:
+            user_error = "AI service rate limit reached. Please try again later."
+        elif "daily limit" in lower_error:
+            user_error = error_msg  
+        else:
+            user_error = "AI processing failed. Please try again."
+
         return {
             "parsed_suggestions": [],
             "suggestions": result.get("text", ""),
             "tokens_used": result.get("tokens_used", 0),
             "cached": False,
-            "error": result["error"]
+            "error": user_error
         }
+    
     try:
         parsed = parse_refactor_suggestions(result["text"])
         if not parsed:
