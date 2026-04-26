@@ -68,12 +68,12 @@ def refactor_code(
         # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
         "code": normalized_code
     }
-    input_hash = create_input_hash(cache_input)
+    refactor_input_hash = create_input_hash(cache_input)
 
     # Check cache
     cached = db.query(AIResponse).filter(
         AIResponse.feature_type == "refactor_code",
-        AIResponse.input_hash == input_hash
+        AIResponse.input_hash == refactor_input_hash
     ).first()
 
     if cached:
@@ -109,11 +109,11 @@ def refactor_code(
         # "code_hash": hashlib.sha256(function_code.encode()).hexdigest()
         "code": normalized_code
         }
-        input_hash = create_input_hash(cache_input)
+        suggest_input_hash = create_input_hash(cache_input)
 
         cached_suggestion = db.query(AIResponse).filter(
             AIResponse.feature_type == "refactor_suggest",
-            AIResponse.input_hash == input_hash
+            AIResponse.input_hash == suggest_input_hash
         ).first()
 
         if cached_suggestion:
@@ -151,37 +151,16 @@ def refactor_code(
         thinking_budget=80
     )
 
-    # if result["error"]:
-    #     return {
-    #     "original_code": function_code,
-    #     "refactored_code": function_code,
-    #     "changes": "Refactoring temporarily unavailable. Please try again.",
-    #     "tokens_used": 0,
-    #     "cached": False,
-    #     "error": result["error"]
-    # }
-    error_msg = result["error"]
-
+    error_msg = result.get("error")
     if error_msg:
-        lower_error = error_msg.lower()
-
-        if "503" in error_msg or "unavailable" in lower_error:
-            user_error = "AI service is temporarily unavailable. Please try again in a moment."
-        elif "rate" in lower_error or "quota" in lower_error:
-            user_error = "AI service rate limit reached. Please try again later."
-        elif "daily limit" in lower_error:
-            user_error = error_msg  
-        else:
-            user_error = "AI processing failed. Please try again."
-
         return {
-            "original_code": function_code,
-            "refactored_code": function_code,
-            "changes": "",
-            "tokens_used": result.get("tokens_used", 0),
-            "cached": False,
-            "error": user_error
-        }
+        "original_code": function_code,
+        "refactored_code": function_code,
+        "changes": "",
+        "tokens_used": result.get("tokens_used", 0),
+        "cached": False,
+        "error": error_msg
+    }
 
     # Parse response
     parsed = parse_refactor_response(result["text"])
@@ -208,7 +187,7 @@ def refactor_code(
     try:
         ai_response = AIResponse(
             feature_type="refactor_code",
-            input_hash=input_hash,
+            input_hash=refactor_input_hash,
             response_data={
                 "refactored_code": parsed["refactored_code"],
                 "changes": parsed["changes"]

@@ -222,33 +222,13 @@ def explain_node(
     if not text:
         text = "This block represents a control flow step, but no explanation could be generated."
 
-    # if result["error"]:
-    #     return {
-    #         "explanation": text,
-    #         "tokens_used": result["tokens_used"],
-    #         "cached": False,
-    #         "error": result["error"]
-    #     }
-
-    error_msg = result["error"]
-
+    error_msg = result.get("error")
     if error_msg:
-        lower_error = error_msg.lower()
-
-        if "503" in error_msg or "unavailable" in lower_error:
-            user_error = "AI service is temporarily unavailable. Please try again in a moment."
-        elif "rate" in lower_error or "quota" in lower_error:
-            user_error = "AI service rate limit reached. Please try again later."
-        elif "daily limit" in lower_error:
-            user_error = error_msg  
-        else:
-            user_error = "AI processing failed. Please try again."
-
         return {
             "explanation": text,
-            "tokens_used": result.get("tokens_used", 0),
+            "tokens_used": result["tokens_used"],
             "cached": False,
-            "error": user_error
+            "error": error_msg
         }
     
     update_ai_quota(user, "node_explain", db)

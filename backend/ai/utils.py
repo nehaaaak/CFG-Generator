@@ -1,6 +1,7 @@
 import hashlib
 import json
 from typing import Dict, Any, List  
+from fastapi import HTTPException
 
 
 def create_input_hash(data: Dict[Any, Any]) -> str:
@@ -63,3 +64,19 @@ def format_top_issues(smells: List[Dict], limit: int = 3) -> str:
 
 def normalize_code(code: str) -> str:
     return "\n".join(line.strip() for line in code.strip().splitlines())
+
+
+def handle_ai_error(result: dict):
+    error_msg = (result.get("error") or "").lower()
+
+    if "daily limit" in error_msg:
+        raise HTTPException(status_code=429, detail=result)
+
+    elif "unavailable" in error_msg or "503" in error_msg:
+        raise HTTPException(status_code=503, detail=result)
+
+    elif "not found" in error_msg:
+        raise HTTPException(status_code=400, detail=result)
+
+    else:
+        raise HTTPException(status_code=500, detail=result)

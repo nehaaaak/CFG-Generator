@@ -6,7 +6,7 @@ from typing import List, Optional
 import ast
 from .database import get_db, init_db
 from .db_models import User, CFGSession, AIResponse
-from .ai.utils import create_input_hash  
+from .ai.utils import create_input_hash, normalize_code, handle_ai_error  
 
 from .auth import (
     get_password_hash, 
@@ -64,7 +64,8 @@ from .ai.services.refactor_coder import refactor_code as refactor_code_service
 import uvicorn
 import os
 from contextlib import asynccontextmanager
-import hashlib
+
+
 
 
 @asynccontextmanager
@@ -729,8 +730,8 @@ async def explain_node(
         db=db
     )
     
-    # if result.get("error"):
-    #     raise HTTPException(status_code=400, detail=result["error"])
+    if result.get("error"):
+        handle_ai_error(result)
     
     return AINodeExplainResponse(
         explanation=result["explanation"],
@@ -764,8 +765,8 @@ async def explain_path(
         db=db
     )
     
-    # if result.get("error"):
-    #     raise HTTPException(status_code=400, detail=result["error"])
+    if result.get("error"):
+        handle_ai_error(result)
 
     return AIPathExplainResponse(
         explanation=result["explanation"],
@@ -806,8 +807,8 @@ async def refactor_suggest(
     #         cached=result.get("cached", False),
     #         error=result["error"]
     #     )
-    # if result["error"]:
-    #     raise HTTPException(status_code=400, detail=result["error"])
+    if result.get("error"):
+        handle_ai_error(result)
     
     return AIRefactorSuggestResponse(
         parsed_suggestions=result.get("parsed_suggestions", []),
@@ -835,8 +836,8 @@ async def refactor_code_endpoint(
         function_name=request.function_name,
         db=db
     )
-    # if result.get("error"):
-    #     raise HTTPException(status_code=400, detail=result["error"])
+    if result.get("error"):
+        handle_ai_error(result)
     
     return AIRefactorCodeResponse(**result)
 
@@ -900,19 +901,26 @@ async def compare_cfg_endpoint(
         if not function_code:
             raise HTTPException(status_code=400, detail="Original function extraction failed")
 
-        code_hash = hashlib.sha256(function_code.encode()).hexdigest()
-
+        # code_hash = hashlib.sha256(function_code.encode()).hexdigest()
+        normalized_code = normalize_code(function_code)
+        # Cache key
         cache_input = {
-            "session_id": request.session_id,
+            "feature": "refactor_code",
             "function": request.function_name,
-            "code_hash": code_hash
+            "code": normalized_code
         }
-
         input_hash = create_input_hash(cache_input)
+
+        # cache_input = {
+        #     "session_id": request.session_id,
+        #     "function": request.function_name,
+        #     "code_hash": code_hash
+        # }
+
+        # input_hash = create_input_hash(cache_input)
 
         # Get refactored code from cache
         cached_refactor = db.query(AIResponse).filter(
-            AIResponse.session_id == request.session_id,
             AIResponse.feature_type == "refactor_code",
             AIResponse.input_hash == input_hash
         ).first()
@@ -969,8 +977,8 @@ async def compare_cfg_endpoint(
                             break
                     
                 if target_func_node:
-                    func_cfg = build_function_cfg(node, node.name)
-                    func_code = ast.unparse(node)
+                    func_cfg = build_function_cfg(target_func_node, target_func_node.name)
+                    func_code = ast.unparse(target_func_node)
                     analysis = run_complete_static_analysis(func_cfg, func_code)
                     refactored_smells = analysis.get("code_smells", [])
                     refactored_hotspots = analysis.get("hotspots", [])
@@ -1049,6 +1057,7 @@ async def compare_cfg_endpoint(
             },
             error=str(e)
         )
+
 
 def _extract_function_code(full_code: str, function_name: str) -> Optional[str]:
     try:
