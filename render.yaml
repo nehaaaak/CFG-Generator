@@ -29,7 +29,7 @@ services:
         value: 7
 
       - key: ALLOWED_ORIGINS
-        value: http://localhost:5173,http://localhost:3000
+        value: http://localhost:5173,http://localhost:3000,https://cfg-frontend.vercel.app
 
       - key: ENVIRONMENT
         value: production

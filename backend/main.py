@@ -79,7 +79,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="CFG Generator API", version="1.0", lifespan=lifespan)
 
 
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,https://cfg-frontend.vercel.app").split(",")
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
