@@ -719,7 +719,7 @@ class ComplexityHotspotDetector:
         nested_loops = self.cfg.count_nested_loops()
 
         
-        if nested_loops > 0:
+        if nested_loops > 1:
             hotspots.append({
                 "type": "nested_loops",
                 "severity": "high",

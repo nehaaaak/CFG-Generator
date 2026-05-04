@@ -206,7 +206,7 @@ STRICT RULES:
 - Explain only what the path guarantees
 
 OUTPUT INSTRUCTIONS:
-Explain in 3–4 concise sentences:
+Explain in 4–5 concise lines:
 - Mention what kind of execution path this represents(e.g., early return, loop iteration, normal completion)
 - What execution scenario this path represents (e.g., condition never satisfied, loop completes without match)
 - How execution proceeds through key decisions. Example: "the first condition (score >= 90) evaluates to true"

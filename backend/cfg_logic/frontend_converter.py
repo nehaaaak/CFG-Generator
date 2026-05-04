@@ -257,7 +257,47 @@ def generate_cfg_for_code(source_code: str, function_name: str = None) -> Dict:
         "errors": []
     }
     
+    # Heuristic language detection
+    non_python_indicators = [
+    # Java
+    "public class", "System.out", "void main", "import java",
+
+    # C / C++
+    "#include", "printf", "scanf", "cout", "cin", "int main",
+
+    # JavaScript / TypeScript
+    "console.log", "function(", "=>", "var ", "let ", "const ",
+
+    # Go
+    "package main", "fmt.Println",
+
+    # Rust
+    "fn main()", "println!", "let mut",
+
+    # C#
+    "using System", "Console.WriteLine",
+
+    # PHP
+    "<?php", "echo ",
+
+    # Swift
+    "import UIKit", "print(",
+
+    # Kotlin
+    "fun main", "println(",
+
+    # Ruby
+    "puts ", "def ", "end"   
+    ]
+
+    lower_code = source_code.lower()
+
     try:
+        if any(keyword in lower_code for keyword in non_python_indicators):
+            result["success"] = False
+            result["errors"].append("Only Python code is supported currently.")
+            return result
+        
         tree = ast.parse(source_code)
         
         # Extract all functions
@@ -295,7 +335,7 @@ def generate_cfg_for_code(source_code: str, function_name: str = None) -> Dict:
         
     except SyntaxError as e:
         result["success"] = False
-        result["errors"].append(f"Syntax error: {str(e)}")
+        result["errors"].append("Invalid Python code or unsupported language.")
     except Exception as e:
         result["success"] = False
         result["errors"].append(f"Error: {str(e)}")
