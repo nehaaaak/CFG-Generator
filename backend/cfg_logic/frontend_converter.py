@@ -260,34 +260,34 @@ def generate_cfg_for_code(source_code: str, function_name: str = None) -> Dict:
     # Heuristic language detection
     non_python_indicators = [
     # Java
-    "public class", "System.out", "void main", "import java",
+    "public class", "system.out", "void main", "import java",
 
     # C / C++
     "#include", "printf", "scanf", "cout", "cin", "int main",
 
     # JavaScript / TypeScript
-    "console.log", "function(", "=>", "var ", "let ", "const ",
+    "console.log", "=>", "var ", "const ",
 
     # Go
-    "package main", "fmt.Println",
+    "package main", "fmt.println",
 
     # Rust
     "fn main()", "println!", "let mut",
 
     # C#
-    "using System", "Console.WriteLine",
+    "using system", "console.writeline",
 
     # PHP
-    "<?php", "echo ",
+    "<?php",
 
     # Swift
-    "import UIKit", "print(",
+    "import uikit",
 
     # Kotlin
-    "fun main", "println(",
+    "fun main",
 
     # Ruby
-    "puts ", "end"   
+    "puts"
     ]
 
     lower_code = source_code.lower()
