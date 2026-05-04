@@ -287,7 +287,7 @@ def generate_cfg_for_code(source_code: str, function_name: str = None) -> Dict:
     "fun main", "println(",
 
     # Ruby
-    "puts ", "def ", "end"   
+    "puts ", "end"   
     ]
 
     lower_code = source_code.lower()
