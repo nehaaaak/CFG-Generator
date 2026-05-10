@@ -6,15 +6,14 @@ services:
 
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    autoDeploy: true
 
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
 
       - key: DATABASE_URL
-        fromDatabase:
-          name: cfg-db
-          property: connectionString
+        sync: false
 
       - key: SECRET_KEY
         generateValue: true
@@ -29,7 +28,7 @@ services:
         value: 7
 
       - key: ALLOWED_ORIGINS
-        value: http://localhost:5173,http://localhost:3000,https://cfg-frontend.vercel.app
+        value: http://localhost:5173,http://localhost:3000,https://cfg-frontend.vercel.app,https://cfg-codeflow.vercel.app
 
       - key: ENVIRONMENT
         value: production
@@ -43,8 +42,25 @@ services:
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
 
-databases:
-  - name: cfg-db
-    plan: free
-    databaseName: cfg_generator
-    user: cfg_user
+
+
+
+
+
+
+
+
+
+
+
+
+
+# databases:
+#   - name: cfg-db
+#     plan: free
+#     databaseName: cfg_generator
+#     user: cfg_user
+
+# fromDatabase:
+#           name: cfg-db
+#           property: connectionString
