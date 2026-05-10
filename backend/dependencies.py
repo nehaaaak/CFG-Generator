@@ -15,17 +15,6 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """
-    Dependency to get current authenticated user from JWT token
-    
-    Usage:
-        @app.get("/protected")
-        async def protected_route(current_user: User = Depends(get_current_user)):
-            return {"user": current_user.email}
-    
-    Raises:
-        HTTPException: 401 if token is invalid or user not found
-    """
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
