@@ -117,7 +117,7 @@ async def health(db: Session = Depends(get_db)):
     }
 
 
-@app.get("/ping")
+@app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
     return {"status": "alive"}
     
