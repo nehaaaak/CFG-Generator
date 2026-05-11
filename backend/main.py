@@ -115,6 +115,11 @@ async def health(db: Session = Depends(get_db)):
         "database": db_status,
         "environment": os.getenv("ENVIRONMENT", "development")
     }
+
+
+@app.get("/ping")
+async def ping():
+    return {"status": "alive"}
     
 
 # ==================== AUTH ENDPOINTS ====================
