@@ -76,18 +76,11 @@ Code:
     
     # Add predecessor context
     if predecessors:
-        # prompt += "─────────────────────────────────────────────────────────\n"
         prompt += "INCOMING FLOW (How execution reaches this block):\n"
-        # prompt += "─────────────────────────────────────────────────────────\n"
         for pred in predecessors:
             pred_id = pred.get("block_id", "?")
             edge_label = pred.get("edge_label", "")
             pred_code = pred.get("code", "")
-            
-            # edge_info = f" [{edge_label}]" if edge_label else ""
-            # code_info = f": {pred_code}" if pred_code else ""
-            
-            # prompt += f"  From {pred_id}{edge_info}{code_info}\n"
 
             if edge_label and pred_code:
                 prompt += f"  From {pred_id} when ({pred_code}) evaluated {edge_label}\n"
@@ -346,108 +339,3 @@ def format_node_context_for_prompt(
         "loop_context": loop_context
     }   
 
-
-
-
-
-
-
-
-
-# 4. ROLE: This block's role in the overall flow
-#     - Is it a critical decision point, loop guard, return path, etc.
-
-# def detect_loop_context(node, cfg_nodes, cfg_edges):
-#     """
-#     Detect loop context for a node:
-#     - loop_header
-#     - loop_body
-#     - loop_exit
-#     """
-
-#     node_id = node["id"]
-
-#     # Build adjacency map
-#     successors = {}
-#     for edge in cfg_edges:
-#         src = edge["from_node"]
-#         dst = edge["to_node"]
-#         successors.setdefault(src, []).append(dst)
-
-#     # Detect back edges using DFS
-#     visited = set()
-#     stack = set()
-#     back_edges = []
-
-#     def dfs(n):
-#         visited.add(n)
-#         stack.add(n)
-
-#         for succ in successors.get(n, []):
-#             if succ not in visited:
-#                 dfs(succ)
-#             elif succ in stack:
-#                 back_edges.append((n, succ))
-
-#         stack.remove(n)
-
-#     if successors:
-#         dfs(list(successors.keys())[0])
-
-#     # Identify loop structures
-#     for src, dst in back_edges:
-
-#         # dst = loop header
-#         header_node = next((n for n in cfg_nodes if n["id"] == dst), None)
-
-#         if node_id == dst:
-#             return {
-#                 "is_in_loop": True,
-#                 "loop_header": f"B{header_node.get('block_number')}",
-#                 "loop_role": "loop_header",
-#                 "loop_type": "loop"
-#             }
-
-#         if node_id == src:
-#             return {
-#                 "is_in_loop": True,
-#                 "loop_header": f"B{header_node.get('block_number')}",
-#                 "loop_role": "loop_back_edge",
-#                 "loop_type": "loop"
-#             }
-
-#     # Detect loop body nodes
-#     for src, dst in back_edges:
-#         if node_id != dst:
-#             return {
-#                 "is_in_loop": True,
-#                 "loop_header": f"B{dst}",
-#                 "loop_role": "loop_body",
-#                 "loop_type": "loop"
-#             }
-
-#     return None
-
-
-# Provide a clear 2-3 concise sentence explanation covering:
-
-# 1. PURPOSE: What this block does in the control flow
-# - Include actual code in parentheses when referencing conditions/statements
-# - Example: "checks if the score is at least 75 (score >= 75)"
-
-# 2. CONTEXT: How execution reaches this block
-# - Mention predecessor conditions that led here
-# - Example: "reached when the first condition was false"
-
-# 3. BEHAVIOR: What happens based on this block's execution
-# - Explain outgoing paths and their conditions
-# - Example: "if true, returns 'B' and exits; otherwise continues to check..."
-
-# STYLE:
-# - Be specific and reference actual code statements in parentheses
-# - Explain control flow behavior, not just what the code does
-# - Use clear, educational language
-# - Focus on graph structure and execution paths
-
-# Start naturally ("Block B{block_id}...", "This block...", "When execution reaches...").
-# No labels or prefixes. Write the explanation now:
