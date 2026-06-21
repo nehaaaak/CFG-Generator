@@ -314,9 +314,3 @@ The system generates:
 - Refactoring suggestions
 - AI explanations
 - Static analysis summaries
-
----
-
-# 📄 License
-
-This project is developed for academic and educational purposes.
