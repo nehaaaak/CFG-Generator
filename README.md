@@ -71,13 +71,6 @@ Integrated with Google Gemini API for:
 
 # 🛠️ Tech Stack
 
-## Frontend
-- Next.js
-- Vite
-- Tailwind CSS
-- React Flow
-- Dagre
-
 ## Backend
 - FastAPI
 - Python
@@ -284,34 +277,6 @@ Backend runs on:
 
 ```text
 http://127.0.0.1:8000
-```
-
----
-
-## 5️⃣ Frontend Setup
-
-Navigate to frontend folder:
-
-```bash
-cd frontend
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Run frontend:
-
-```bash
-npm run dev
-```
-
-Frontend runs on:
-
-```text
-http://localhost:5173
 ```
 
 ---
