@@ -168,23 +168,14 @@ PATH METRICS:
 Length: {path_metrics['length']} blocks
 Decision Points: {path_metrics['decisions']}
 """
-    
-    # if dominant_block:
-    #     prompt += f"\nDOMINANT DECISION:\n{dominant_block}\n\n"
-
-    # Add decision points (most important context)
     if decision_points:
-        # prompt += "─────────────────────────────────────────────────────────\n"
         prompt += "DECISIONS(conditions):\n"
-        # prompt += "─────────────────────────────────────────────────────────\n"
         for dp in decision_points:
             prompt += f"  {dp['block']}: ({dp['code']}) evaluated {dp['branch']}\n"
         prompt += "\n"
     
-    # Add block details (compact)
-    # prompt += "─────────────────────────────────────────────────────────\n"
+    # Add block details
     prompt += "PATH BLOCKS:\n"
-    # prompt += "─────────────────────────────────────────────────────────\n"
     for block in path_blocks:
         if block["type"] not in ["start", "end"] and block["code"]:
             prompt += f"  {block['block_id']}: {block['code']}\n"
@@ -192,9 +183,7 @@ Decision Points: {path_metrics['decisions']}
     
     # Add outcome
     if outcome_block:
-        # prompt += "─────────────────────────────────────────────────────────\n"
         prompt += "OUTCOME:\n"
-        # prompt += "─────────────────────────────────────────────────────────\n"
         prompt += f"  {outcome_block['code']}\n\n"
     
     # Output instructions
@@ -273,12 +262,7 @@ def extract_path_from_selection(
     for i in range(len(selected_node_ids) - 1):
         from_id = selected_node_ids[i]
         to_id = selected_node_ids[i + 1]
-        
-        # Find edge
-        # edge = next(
-        #     (e for e in cfg_edges if e["from_node"] == from_id and e["to_node"] == to_id),
-        #     None
-        # )
+     
         edge = next(
             (
                 e for e in cfg_edges
@@ -298,33 +282,3 @@ def extract_path_from_selection(
         "edge_conditions": edge_conditions
     }
 
-
-
-
-
-
-# Loop Headers: {path_metrics['loops']}
-# Provide a 4 concise lines explanation covering:
-# 1. PATH TYPE: Mention what kind of execution path this represents
-# (e.g., early return, loop iteration, normal completion)
-
-# 2. SCENARIO: What input/condition triggers this path
-# - Example: "when the score is 90 or above"
-# - Reference actual conditions from the path
-
-# 3. EXECUTION FLOW: How execution proceeds through the path
-# - Mention key decision points and branches taken
-# - Example: "the first condition (score >= 90) evaluates to true"
-
-# 4. OUTCOME: What happens at the end of this path
-# - What gets returned or executed
-# - Example: "returns grade 'A' and exits the function"
-
-# STYLE:
-# - Reference actual code/conditions in parentheses
-# - Explain in terms of execution flow, not just code
-# - Be specific about conditions that trigger this path
-# - Keep it concise but complete
-
-# Start naturally ("This path...", "When execution...", "Along this path...").
-# No labels or prefixes. Write the explanation now:
