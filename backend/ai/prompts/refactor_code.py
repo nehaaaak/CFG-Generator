@@ -42,30 +42,11 @@ def build_prompt(
     - Request structured output (code + changes)
     - Emphasize behavior preservation
     """
-    
-    # Parse target goal into human-readable instruction
-    # goal_instructions = {
-    #     "reduce_cc": "Reduce cyclomatic complexity",
-    #     "reduce_nesting": "Reduce nesting depth",
-    #     "simplify_logic": "Simplify control flow logic",
-    #     "extract_methods": "Extract methods from complex sections",
-    #     "improve_readability": "Improve code readability",
-    #     "remove_dead_code": "Remove unreachable/unused code",
-    #     "general": "Apply best practices refactoring"
-    # }
-    
-    # goal_text = goal_instructions.get(target_goal, "Improve code structure")
-    
     # Extract key metrics
     cc = metrics.get("cyclomatic_complexity", 0)
     nesting = metrics.get("max_nesting_depth", 0)
     decisions = metrics.get("decision_points", 0)   
 
-    # Truncate code to 30 lines
-    # code_lines = original_code.split('\n')
-    # if len(code_lines) > 30:
-    #     original_code = '\n'.join(code_lines[:30]) + f"\n# ... ({len(code_lines) - 30} more lines)"
-    
     # Format issues concisely
     issue_summary = ""
     if issues:
@@ -90,17 +71,9 @@ Cyclomatic Complexity: {cc}, Max Nesting Depth: {nesting}, Decision Points: {dec
 
 {issue_summary}
 """
-    
-    # Add AI suggestions if available
-    # if suggestions:
-    #     # Extract first 400 chars of suggestions (key points only)
-    #     short = suggestions[:400] + "..." if len(suggestions) > 400 else suggestions
-    #     prompt += f"\nREFACTORING GUIDANCE:\n{short}\n"
 
     if suggestions:
         prompt += "\nRefactoring Hints:\n"
-        # for s in suggestions[:3]:
-        #     prompt += f"- {s['title']}: {s['description']}\n"
         compressed_suggestions = compress_suggestions(suggestions)
         prompt += f"{compressed_suggestions}\n"
 
@@ -216,67 +189,3 @@ def compress_suggestions(parsed_suggestions):
 
     return "\n".join(compressed)    
 
-
-
-
-
-
-
-
-# # Only keep key idea (title-based compression)
-        # if "Extract" in title:
-        #     compressed.append("- Extract helper function")
-        # elif "Simplify" in title:
-        #     compressed.append("- Simplify nested conditionals")
-        # elif "Remove" in title:
-        #     compressed.append("- Remove unused variable")
-        # else:
-            # compressed.append(f"- {title}")
-
-
-# DO NOT:
-# ✗ Change function parameters or return type
-# ✗ Add new imports unless absolutely necessary
-# ✗ Change variable names unnecessarily
-# ✗ Make changes that could alter behavior
-# ✗ Over-engineer simple code
-
-
-# CHANGES MADE:
-# 1. [Brief description of change 1]
-# 2. [Brief description of change 2]
-# 3. [Brief description of change 3]
-
-
-# 1. GUARD CLAUSES & EARLY RETURNS
-#    • Replace nested if-else with early returns
-#    • Invert conditions to reduce nesting
-#    • Example: if x: if y: return A  →  if not x: return B; if not y: return C; return A
-
-# 2. EXTRACT METHOD
-#    • Break large functions into smaller ones
-#    • Extract logical sections (5+ lines doing one thing)
-#    • Use descriptive helper function names
-
-# 3. SIMPLIFY CONDITIONALS
-#    • Flatten if-elif chains where possible
-#    • Combine related conditions
-#    • Use boolean operators effectively
-
-# 4. PYTHONIC IMPROVEMENTS (safe only):
-#    • Replace simple loops with comprehensions
-#    • Use enumerate() instead of range(len())
-#    • Use 'in' operator for membership tests
-
-# 5. EXTRACT CONSTANTS
-#    • Replace magic numbers with named constants
-#    • Define at function/module level
-
-# 6. REMOVE DEAD CODE
-#    • Remove unreachable statements
-#    • Remove unused variables
-
-
-# ✓ Do not modify condition expressions or their evaluation order 
-# ✓ Preserve execution order and decision logic exactly 
-# ✓ No new imports unless essential
