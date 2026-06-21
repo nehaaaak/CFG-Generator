@@ -249,39 +249,6 @@ async def refresh_token(request: Request, response: Response, db: Session = Depe
     }
 
 
-# @app.post("/api/auth/refresh", response_model=Token)
-# async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)):
-#     """Refresh access token using refresh token"""
-    
-#     # Verify refresh token
-#     payload = verify_token(token_data.refresh_token, token_type="refresh")
-    
-#     if payload is None:
-#         raise HTTPException(
-#             status_code=401,
-#             detail="Invalid or expired refresh token"
-#         )
-    
-#     user_id = payload.get("sub")
-#     if not user_id:
-#         raise HTTPException(status_code=401, detail="Invalid token payload")
-    
-#     # Verify user exists
-#     user = db.query(User).filter(User.id == int(user_id)).first()
-#     if not user:
-#         raise HTTPException(status_code=401, detail="User not found")
-    
-#     # Create new tokens
-#     access_token = create_access_token(data={"sub": str(user.id)})
-#     refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
-#     return {
-#         "access_token": access_token,
-#         "refresh_token": refresh_token,
-#         "token_type": "bearer"
-#     }
-
-
 @app.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
@@ -319,14 +286,6 @@ async def generate_cfg(
         
         # Generate CFG using new system
         result = generate_cfg_for_code(code)
-        
-        # if not result["success"]:
-        #     return CFGResponse(
-        #         success=False,
-        #         functions=[],
-        #         overall_cc=0,
-        #         error=result["errors"][0] if result["errors"] else "Unknown error"
-        #     )
 
         if not result["success"]:
             raise HTTPException(
@@ -386,54 +345,6 @@ async def generate_cfg(
             print(f"Static analysis error: {e}")
             static_analysis_results = {"error": str(e)}
 
-        # Generate AI explanation (PUBLIC-for all users)
-        # overall_ai_explanation = None
-        # try:
-        #     # Collect unreachable code from all functions
-        #     all_unreachable = []
-        #     for func_cfg in function_cfgs:
-        #         if hasattr(func_cfg, 'unreachable_code') and func_cfg.unreachable_code:
-        #             all_unreachable.extend(func_cfg.unreachable_code)
-            
-        #     overall_ai_explanation = generate_overall_explanation_ai(
-        #         result, 
-        #         static_analysis_results,
-        #         all_unreachable
-        #     )
-        # except Exception as e:
-        #     print(f"AI explanation error: {e}")
-        #     overall_ai_explanation = None
-
-        # # Save to database
-        # if current_user:
-        #     session = CFGSession(
-        #         user_id=current_user.id,
-        #         code=code,
-        #         cfg_data=result,
-        #         static_analysis=static_analysis_results,  
-        #         overall_explanation=overall_ai_explanation,
-        #         name=input_data.name,
-        #         description=input_data.description,
-        #         overall_cc=overall_cc,
-        #         function_count=len(function_cfgs)
-        #     )
-        
-        #     db.add(session)
-        #     db.commit()
-        #     db.refresh(session)
-
-        # session_id_to_return = session.session_id if current_user and session else None
-
-        # return CFGResponse(
-        #     success=True,
-        #     functions=function_cfgs,
-        #     overall_cc=overall_cc,
-        #     static_analysis=static_analysis_results,
-        #     ai_explanation=overall_ai_explanation,
-        #     session_id=session_id_to_return,
-        #     error=None
-        # )
-
         all_unreachable = []
         for func_cfg in function_cfgs:
             if hasattr(func_cfg, 'unreachable_code') and func_cfg.unreachable_code:
@@ -458,53 +369,6 @@ async def generate_cfg(
             db.refresh(session)
 
         overall_ai_explanation = None
-        # try:
-        #     cache_input = {
-        #         "code": code,
-        #         "feature": "overall_explain"
-        #     }
-        #     input_hash = create_input_hash(cache_input)
-
-        #     # ✅ Logged-in users → cache
-        #     if current_user and session:
-        #         cached = db.query(AIResponse).filter(
-        #             AIResponse.session_id == session.session_id,
-        #             AIResponse.feature_type == "overall_explain",
-        #             AIResponse.input_hash == input_hash
-        #         ).first()
-
-        #         if cached:
-        #             overall_ai_explanation = cached.response_data.get("explanation", "")
-        #         else:
-        #             overall_ai_explanation = generate_overall_explanation_ai(
-        #                 result,
-        #                 static_analysis_results,
-        #                 all_unreachable
-        #             )
-
-        #             # store in cache
-        #             try:
-        #                 ai_response = AIResponse(
-        #                     session_id=session.session_id,
-        #                     user_id=current_user.id,
-        #                     feature_type="overall_explain",
-        #                     input_hash=input_hash,
-        #                     response_data={"explanation": overall_ai_explanation},
-        #                     tokens_used=None,
-        #                     model_used="gemini-2.5-flash"
-        #                 )
-        #                 db.add(ai_response)
-        #                 db.commit()
-        #             except Exception as e:
-        #                 print("Cache save error:", e)
-
-        #     # ✅ Non-logged-in users → no cache
-        #     else:
-        #         overall_ai_explanation = generate_overall_explanation_ai(
-        #             result,
-        #             static_analysis_results,
-        #             all_unreachable
-        #         )
         try:
             functions_data = result.get("functions", {})
 
@@ -534,7 +398,7 @@ async def generate_cfg(
 
             input_hash = create_input_hash(cache_input)
 
-            # GLOBAL CACHE CHECK (no session/user)
+            # GLOBAL CACHE CHECK 
             cached = db.query(AIResponse).filter(
                 AIResponse.feature_type == "overall_explain",
                 AIResponse.input_hash == input_hash
@@ -720,13 +584,6 @@ async def explain_node(
     """
     Explain a specific CFG node (Protected - 2/day limit)
     """
-    # Check quota
-    # try:
-    #     check_and_update_ai_quota(current_user, "node_explain", db)
-    # except HTTPException as e:
-    #     raise e
-    
-    # Generate explanation
     result = explain_node_service(
         session_id=request.session_id,
         function_name=request.function_name,
@@ -755,13 +612,6 @@ async def explain_path(
     """
     Explain an execution path through the CFG (Protected - 2/day limit)
     """
-    # Check quota
-    # try:
-    #     check_and_update_ai_quota(current_user, "path_explain", db)
-    # except HTTPException as e:
-    #     raise e
-    
-    # Generate explanation
     result = explain_path_service(
         session_id=request.session_id,
         function_name=request.function_name,
@@ -790,13 +640,6 @@ async def refactor_suggest(
     """
     Get AI refactoring suggestions (Protected - 2/day limit)
     """
-    # Check quota
-    # try:
-    #     check_and_update_ai_quota(current_user, "refactor_suggest", db)
-    # except HTTPException as e:
-    #     raise e
-    
-    # Generate suggestions
     result = suggest_refactoring(
         session_id=request.session_id,
         user=current_user,
@@ -804,14 +647,6 @@ async def refactor_suggest(
         db=db
     )
 
-    # if result.get("error"):
-    #     return AIRefactorSuggestResponse(
-    #         parsed_suggestions=[],
-    #         suggestions=result.get("suggestions", ""),
-    #         tokens_used=result.get("tokens_used", 0),
-    #         cached=result.get("cached", False),
-    #         error=result["error"]
-    #     )
     if result.get("error"):
         handle_ai_error(result)
     
@@ -830,11 +665,6 @@ async def refactor_code_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):  
-    # try:
-    #     check_and_update_ai_quota(current_user, "refactor_code", db)
-    # except HTTPException as e:
-    #     raise e
-
     result = refactor_code_service(
         session_id=request.session_id,
         user=current_user,
@@ -915,14 +745,6 @@ async def compare_cfg_endpoint(
             "code": normalized_code
         }
         input_hash = create_input_hash(cache_input)
-
-        # cache_input = {
-        #     "session_id": request.session_id,
-        #     "function": request.function_name,
-        #     "code_hash": code_hash
-        # }
-
-        # input_hash = create_input_hash(cache_input)
 
         # Get refactored code from cache
         cached_refactor = db.query(AIResponse).filter(
