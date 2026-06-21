@@ -2,6 +2,52 @@
 
 AI-powered Control Flow Graph (CFG) Generator and Static Code Analysis System for Python Programs.
 
+## 🎯 Why We Built This
+
+CodeFlow was developed as our final year research project to explore how static program analysis can be made more accessible using AI. While studying compiler concepts and existing code analysis tools, we found that understanding control flow graphs and complexity metrics can be difficult for students without specialized tools.
+
+Our goal was to build a system that not only generates Control Flow Graphs (CFGs) from Python programs but also explains the analysis using AI, making program understanding easier for learners and developers. We also wanted to combine traditional static analysis with modern LLM capabilities to provide practical code quality improvement suggestions rather than just numerical metrics.
+
+
+## 👨‍💻 My Contribution
+
+This project was developed by a team of four members.
+
+My primary responsibilities included:
+
+- Designing and developing the complete FastAPI backend architecture.
+- Implementing the static analysis APIs and integrating them with the frontend.
+- Integrating Google Gemini for AI-powered code explanations, CFG explanations, and refactoring suggestions.
+- Designing authentication using JWT access and refresh tokens.
+- Integrating PostgreSQL with SQLAlchemy for persistent storage.
+- Implementing response caching and fallback mechanisms to reduce unnecessary LLM calls and improve reliability.
+- Contributing to the overall system architecture and assisting with parts of the UI design.
+
+While the project was collaborative, I was primarily responsible for the backend, AI integration, and many of the architectural decisions.
+
+
+## ⚡ Challenges & Design Decisions
+
+Building CodeFlow involved several engineering challenges beyond simply integrating an LLM.
+
+- Generating meaningful AI-powered refactoring suggestions for large code snippets while staying within LLM token limits was challenging. I refined the prompts and introduced response length constraints so the suggestions remained concise, relevant, and within API limits.
+- Converting Python's AST into an accurate Control Flow Graph required careful handling of nested branches, loops, function definitions, return statements, and different execution paths while preserving the program's logical flow.
+- Designing the backend architecture was another key challenge. Since the project combines static analysis, AI services, authentication, database operations, and frontend communication, I organized the backend into modular components with clear separation of responsibilities, making the system easier to maintain and extend.
+- Since LLM APIs occasionally fail or become rate-limited, I added fallback mechanisms and proper error handling to improve reliability.
+
+
+## 📚 What I Learned
+
+Working on CodeFlow helped me move beyond building standalone AI demos and taught me how AI fits into larger software systems.
+
+Some of my key learnings include:
+
+- Gained a practical understanding of how Control Flow Graphs are used in compilers and static code analysis.
+- Learned how Python's Abstract Syntax Tree (AST) can be used to analyze source code programmatically.
+- Understood the challenges of integrating LLMs into production applications, including token limits, latency, prompt design, caching, and fallback strategies.
+- Improved my backend engineering skills using FastAPI, SQLAlchemy, JWT authentication, and PostgreSQL.
+- Experienced collaborative software development, system design discussions, and balancing research ideas with practical implementation.
+
 ---
 
 # 📌 Project Overview
